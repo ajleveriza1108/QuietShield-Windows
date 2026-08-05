@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>QuietShield.App</AssemblyName>
+    <RootNamespace>QuietShield.App</RootNamespace>
+    <Version>0.1.0</Version>
+    <AssemblyInformationalVersion>0.1.0-foundation</AssemblyInformationalVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\QuietShield.Core\QuietShield.Core.csproj" />
+    <ProjectReference Include="..\QuietShield.Licensing\QuietShield.Licensing.csproj" />
+    <ProjectReference Include="..\QuietShield.Windows\QuietShield.Windows.csproj" />
+  </ItemGroup>
+
+</Project>

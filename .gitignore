@@ -1,0 +1,49 @@
+# Visual Studio and user state
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build, test, and generated artifacts
+artifacts/*
+!artifacts/.gitkeep
+**/bin/
+**/obj/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Logs
+logs/*.log
+logs/*.json
+!logs/.gitkeep
+
+# Package caches and temporary files
+packages/
+.nuget/
+*.tmp
+*.bak
+*.userprefs
+
+# IDEs and operating system
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Local secrets and signing material must never be committed
+*.pfx
+*.p12
+*.snk
+*.key
+*.pem
+*.cer
+*.crt
+secrets.json
+appsettings.Local.json
+
+# Generated after the foundation commit so it can record that commit's hash
+INITIAL-PROJECT-REPORT.md
