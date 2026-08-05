@@ -169,6 +169,37 @@
                                                Text="{Binding LicenseSummary}" />
                                 </StackPanel>
                             </Border>
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="FIREWALL — READ ONLY" />
+                                    <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Text="{Binding FirewallSummary}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="DNS — READ ONLY" />
+                                    <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Text="{Binding DnsSummary}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="INSTALLED APPLICATIONS" />
+                                    <TextBlock Margin="0,10,0,0" FontSize="22" FontWeight="SemiBold" Text="{Binding ApplicationCount}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="LAST DISCOVERY / WARNINGS" />
+                                    <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Text="{Binding LastDiscovery}" />
+                                    <TextBlock Margin="0,5,0,0" Text="{Binding WarningCount, StringFormat=Warnings: {0}}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="POWER — READ ONLY" />
+                                    <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Text="{Binding PowerSummary}" />
+                                </StackPanel>
+                            </Border>
                         </UniformGrid>
 
                         <Border Style="{StaticResource CardStyle}">
@@ -188,7 +219,94 @@
                         </Border>
                     </StackPanel>
 
-                    <StackPanel Visibility="{Binding IsFeaturePage, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Visibility="{Binding IsProgramConnectionLock, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border Margin="0,0,0,16" Padding="16" Background="{StaticResource AccentSoftBrush}" CornerRadius="9">
+                            <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Text="{Binding SimulationBanner}" />
+                        </Border>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="5*" />
+                                <ColumnDefinition Width="4*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                                <DockPanel>
+                                    <TextBox DockPanel.Dock="Top" Margin="0,0,0,12" Padding="9" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Search installed applications" />
+                                    <ListBox ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}" MaxHeight="440" AutomationProperties.Name="Read-only application inventory">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="42" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                    <Grid Grid.Column="0">
+                                                        <TextBlock FontSize="24" Foreground="{StaticResource AccentBrush}" Text="▣" ToolTip="No extractable icon was available" />
+                                                        <Image Width="32" Height="32" Source="{Binding IconImage}" ToolTip="{Binding IconSourcePath}" />
+                                                    </Grid>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding Publisher}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock FontSize="11" Foreground="{StaticResource SecondaryTextBrush}">
+                                                            <Run Text="{Binding Version, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{Binding ApplicationType, Mode=OneWay}" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </DockPanel>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="Local policy simulator" />
+                                    <TextBlock Margin="0,14,0,4" Text="Connection type" />
+                                    <ComboBox ItemsSource="{Binding ConnectionTypes}" SelectedItem="{Binding SelectedConnectionType}" />
+                                    <TextBlock Margin="0,14,0,4" Text="Protection profile" />
+                                    <ComboBox ItemsSource="{Binding ProfileModes}" SelectedItem="{Binding SelectedProfileMode}" />
+                                    <TextBlock Margin="0,14,0,4" Text="Program connection policy" />
+                                    <ComboBox ItemsSource="{Binding ProgramPolicies}" SelectedItem="{Binding SelectedPolicy}" />
+                                    <TextBlock Margin="0,20,0,0" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Text="{Binding SimulationDecision}" TextWrapping="Wrap" />
+                                    <TextBlock Margin="0,8,0,0" Text="{Binding SimulationReason}" TextWrapping="Wrap" />
+                                    <TextBlock Margin="0,18,0,0" Foreground="{StaticResource WarningBrush}" Text="There is intentionally no Apply or Enforce button." TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding IsCompatibilityGuard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border Style="{StaticResource CardStyle}" Margin="0"><StackPanel><TextBlock FontSize="22" FontWeight="SemiBold" Text="Simulated exclusions only" /><TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Text="Compatibility exclusions can be evaluated by the local policy simulator. No Windows rule, process, service, adapter, firewall, or DNS setting is changed." /></StackPanel></Border>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding IsMeteredDataWatch, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border Style="{StaticResource CardStyle}" Margin="0"><StackPanel><TextBlock FontSize="22" FontWeight="SemiBold" Text="Current metered status" /><TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Text="{Binding NetworkSummary}" /><TextBlock Margin="0,10,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="Traffic accounting is not implemented and no network cost setting is changed." /></StackPanel></Border>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding IsAggressiveProgramWatch, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border Style="{StaticResource CardStyle}" Margin="0"><StackPanel><TextBlock FontSize="22" FontWeight="SemiBold" Text="Not active — monitoring engine not implemented" /><TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Text="No process monitoring, packet capture, or traffic inspection occurs in this phase." /></StackPanel></Border>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding IsDnsProtection, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border Style="{StaticResource CardStyle}" Margin="0"><StackPanel><TextBlock FontSize="22" FontWeight="SemiBold" Text="QuietShield DNS Protection: Not active" /><TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Text="{Binding DnsSummary}" /><TextBlock Margin="0,10,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="DNS servers are displayed from read-only adapter configuration. QuietShield performs no interception." /></StackPanel></Border>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding IsActivity, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border Style="{StaticResource CardStyle}" Margin="0"><StackPanel><TextBlock FontSize="22" FontWeight="SemiBold" Text="Discovery activity" /><TextBlock Margin="0,12,0,0" Text="{Binding ActivitySummary}" TextWrapping="Wrap" /><TextBlock Margin="0,14,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="No ads-blocked, tracker, threat, bandwidth, or data-saved statistics are fabricated." TextWrapping="Wrap" /></StackPanel></Border>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding IsSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border Style="{StaticResource CardStyle}" Margin="0">
+                            <StackPanel>
+                                <TextBlock FontSize="22" FontWeight="SemiBold" Text="Read-only discovery controls" />
+                                <WrapPanel Margin="0,16,0,0">
+                                    <Button Margin="0,0,10,10" Padding="14,8" Command="{Binding RefreshCommand}" Content="Refresh discovery" />
+                                    <Button Margin="0,0,10,10" Padding="14,8" Command="{Binding CancelCommand}" Content="Cancel" />
+                                    <Button Margin="0,0,10,10" Padding="14,8" Command="{Binding ClearCacheCommand}" Content="Clear safe cache" />
+                                    <Button Margin="0,0,10,10" Padding="14,8" Command="{Binding ExportDiagnosticsCommand}" Content="Export privacy-safe diagnostic" />
+                                </WrapPanel>
+                                <TextBlock Margin="0,10,0,0" Text="{Binding LastActionStatus}" TextWrapping="Wrap" />
+                                <TextBlock Margin="0,10,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="Export occurs only when you press the button and excludes usernames, addresses, MACs, SSIDs, credentials, tokens, and command lines." TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding IsGenericPage, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <Border Style="{StaticResource CardStyle}" Margin="0">
                             <StackPanel>
                                 <TextBlock FontSize="22"

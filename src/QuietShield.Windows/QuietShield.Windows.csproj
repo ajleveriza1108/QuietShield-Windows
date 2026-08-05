@@ -12,4 +12,8 @@
     <ProjectReference Include="..\QuietShield.Core\QuietShield.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="Integration\ReadOnlyNetworkServices.cs" />
+  </ItemGroup>
+
 </Project>

@@ -161,6 +161,8 @@ function Get-QuietShieldSafetySnapshot {
     $dnsData = @()
     $adapterData = @()
     $startupData = @()
+    $wfpData = @()
+    $quietShieldRegistryData = @()
 
     try {
         $firewallData = @(Get-NetFirewallProfile -ErrorAction Stop | Select-Object Name, Enabled, DefaultInboundAction, DefaultOutboundAction)
@@ -177,7 +179,10 @@ function Get-QuietShieldSafetySnapshot {
     }
 
     try {
-        $adapterData = @(Get-NetAdapter -ErrorAction Stop | Select-Object InterfaceGuid, Status, LinkSpeed, MacAddress)
+        $adapterData = @(
+            Get-NetIPInterface -ErrorAction Stop |
+                Select-Object InterfaceIndex, AddressFamily, ConnectionState, Dhcp, RouterDiscovery, NlMtu
+        )
     }
     catch {
         $adapterData = @('Unavailable')
@@ -190,17 +195,49 @@ function Get-QuietShieldSafetySnapshot {
     )) {
         if (Test-Path -LiteralPath $path) {
             $startupItem = Get-ItemProperty -LiteralPath $path -ErrorAction Stop
-            foreach ($property in @($startupItem.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' } | Sort-Object Name)) {
+            foreach ($property in @($startupItem.PSObject.Properties | Where-Object { $_.Name -like 'QuietShield*' } | Sort-Object Name)) {
                 $startupData += [pscustomobject]@{
                     Path = $path
                     Name = $property.Name
-                    Value = [string]$property.Value
                 }
             }
         }
     }
 
     $services = @(Get-Service -Name 'QuietShield*' -ErrorAction SilentlyContinue | Select-Object Name, Status, StartType)
+
+    $providerGuid = '{F79D8C43-A343-4A05-BF03-4DA61BDF8498}'
+    $sublayerGuid = '{5D56C870-CF61-4BA7-B59E-89B4B2364A03}'
+    foreach ($path in @(
+        ('HKLM:\SYSTEM\CurrentControlSet\Services\BFE\Parameters\Policy\Persistent\Provider\' + $providerGuid),
+        ('HKLM:\SYSTEM\CurrentControlSet\Services\BFE\Parameters\Policy\Persistent\SubLayer\' + $sublayerGuid),
+        'HKLM:\SYSTEM\CurrentControlSet\Services\QuietShieldWfpCallout',
+        'HKLM:\SYSTEM\CurrentControlSet\Services\QuietShield.Callout',
+        'HKLM:\SYSTEM\CurrentControlSet\Services\QuietShieldDriver'
+    )) {
+        $wfpData += [pscustomobject]@{
+            Path = $path
+            Exists = Test-Path -LiteralPath $path
+        }
+    }
+
+    foreach ($path in @(
+        'HKCU:\Software\QuietShield',
+        'HKLM:\Software\QuietShield',
+        'HKLM:\Software\WOW6432Node\QuietShield',
+        'HKLM:\SYSTEM\CurrentControlSet\Services\QuietShield',
+        'HKLM:\SYSTEM\CurrentControlSet\Services\QuietShield.Service'
+    )) {
+        if (Test-Path -LiteralPath $path) {
+            foreach ($item in @((Get-Item -LiteralPath $path -ErrorAction Stop)) + @(Get-ChildItem -LiteralPath $path -Recurse -ErrorAction Stop)) {
+                $valueNames = @($item.Property | Sort-Object)
+                $quietShieldRegistryData += [pscustomobject]@{
+                    Path = $item.Name
+                    ValueNames = $valueNames
+                }
+            }
+        }
+    }
 
     return [pscustomobject]@{
         IsAdministrator = Test-QuietShieldAdministrator
@@ -210,5 +247,7 @@ function Get-QuietShieldSafetySnapshot {
         DnsHash = Get-QuietShieldStringHash (($dnsData | ConvertTo-Json -Depth 5 -Compress) -join '')
         AdapterHash = Get-QuietShieldStringHash (($adapterData | ConvertTo-Json -Depth 4 -Compress) -join '')
         StartupHash = Get-QuietShieldStringHash (($startupData | ConvertTo-Json -Depth 5 -Compress) -join '')
+        QuietShieldWfpHash = Get-QuietShieldStringHash (($wfpData | ConvertTo-Json -Depth 4 -Compress) -join '')
+        QuietShieldRegistryHash = Get-QuietShieldStringHash (($quietShieldRegistryData | ConvertTo-Json -Depth 5 -Compress) -join '')
     }
 }

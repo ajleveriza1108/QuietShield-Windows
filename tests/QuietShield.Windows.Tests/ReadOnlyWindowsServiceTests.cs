@@ -1,4 +1,5 @@
 using QuietShield.Core.Results;
+using QuietShield.Windows.Discovery;
 using QuietShield.Windows.Integration;
 
 namespace QuietShield.Windows.Tests;

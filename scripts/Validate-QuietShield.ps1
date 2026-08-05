@@ -91,6 +91,19 @@ try {
         'trx'
     )
 
+    Write-Output 'Running Phase 2 application, network, policy simulation, and diagnostic export smoke tests.'
+    Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
+        'test',
+        $solution,
+        '--configuration',
+        'Release',
+        '--no-build',
+        '--no-restore',
+        '-p:Platform=x64',
+        '--filter',
+        'TestCategory=Phase2Smoke'
+    )
+
     $testCount = 0
     $passedCount = 0
     $failedCount = 0
@@ -112,14 +125,25 @@ try {
         throw ("WPF application executable was not found: {0}" -f $appPath)
     }
 
-    Write-Output ('Starting WPF foundation smoke process: ' + $appPath)
-    $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @('--foundation-smoke') -WorkingDirectory (Split-Path -Parent $appPath) -PassThru
-    $exited = $applicationProcess.WaitForExit(15000)
+    $diagnosticPath = Join-Path $testResults 'phase2-live-diagnostic.json'
+    Write-Output ('Starting WPF Phase 2 read-only smoke process: ' + $appPath)
+    $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @('--phase2-smoke', '--diagnostic-output', ('"' + $diagnosticPath + '"')) -WorkingDirectory (Split-Path -Parent $appPath) -PassThru
+    $exited = $applicationProcess.WaitForExit(30000)
     if (-not $exited) {
-        throw ("WPF smoke process did not exit within 15 seconds. Process ID {0} was not terminated automatically." -f $applicationProcess.Id)
+        throw ("WPF smoke process did not exit within 30 seconds. Process ID {0} was not terminated automatically." -f $applicationProcess.Id)
     }
     if ($applicationProcess.ExitCode -ne 0) {
         throw ("WPF smoke process returned exit code {0}." -f $applicationProcess.ExitCode)
+    }
+    if (-not (Test-Path -LiteralPath $diagnosticPath)) {
+        throw 'The WPF Phase 2 smoke did not create its requested privacy-safe diagnostic summary.'
+    }
+    $liveDiagnostic = Get-Content -LiteralPath $diagnosticPath -Raw | ConvertFrom-Json
+    if ([int]$liveDiagnostic.applicationTotal -le 0) {
+        throw 'The live application inventory smoke returned no applications.'
+    }
+    if ([int]$liveDiagnostic.quietShieldOwnedFirewallRuleCount -ne 0) {
+        throw 'QuietShield-owned firewall rules were unexpectedly detected.'
     }
 
     Write-Output 'Running the Clean launcher in WhatIf mode.'
@@ -134,14 +158,14 @@ try {
         throw 'A QuietShield Windows service was registered during validation.'
     }
 
-    foreach ($property in @('QuietShieldServiceHash', 'FirewallHash', 'DnsHash', 'AdapterHash', 'StartupHash')) {
+    foreach ($property in @('QuietShieldServiceHash', 'FirewallHash', 'DnsHash', 'AdapterHash', 'StartupHash', 'QuietShieldWfpHash', 'QuietShieldRegistryHash')) {
         if ($before.$property -ne $after.$property) {
             throw ("Safety snapshot changed during validation: {0}" -f $property)
         }
     }
 
     $validation = [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
         timestamp = (Get-Date).ToString('o')
         status = 'Passed'
         powershellVersion = $PSVersionTable.PSVersion.ToString()
@@ -156,6 +180,25 @@ try {
             passed = $passedCount
             failed = $failedCount
         }
+        phase2SmokeTests = [ordered]@{
+            applicationInventory = 'Passed'
+            networkDiscovery = 'Passed'
+            policySimulation = 'Passed'
+            privacySafeDiagnosticExport = 'Passed'
+        }
+        detected = [ordered]@{
+            applicationCount = [int]$liveDiagnostic.applicationTotal
+            primaryNetworkType = [string]$liveDiagnostic.primaryNetworkType
+            networkCost = [string]$liveDiagnostic.networkCost
+            networkCategory = [string]$liveDiagnostic.networkCategory
+            dnsAdapterCount = [int]$liveDiagnostic.dnsAdapterCount
+            dnsModes = $liveDiagnostic.dnsModes
+            firewallProfiles = $liveDiagnostic.firewallProfiles
+            quietShieldOwnedFirewallRuleCount = [int]$liveDiagnostic.quietShieldOwnedFirewallRuleCount
+            filteringPlatform = $liveDiagnostic.filteringPlatform
+            services = $liveDiagnostic.services
+            power = $liveDiagnostic.power
+        }
         wpfLaunchSmoke = [ordered]@{
             status = 'Passed'
             exitCode = $applicationProcess.ExitCode
@@ -168,6 +211,8 @@ try {
             dnsUnchanged = $true
             adaptersUnchanged = $true
             startupUnchanged = $true
+            quietShieldWfpUnchanged = $true
+            quietShieldRegistryUnchanged = $true
             registryMutationCommandsPresent = $false
             certificateCommandsPresent = $false
             securitySettingMutationCommandsPresent = $false

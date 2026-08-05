@@ -1,10 +1,14 @@
 using System.Windows;
 using System.Windows.Threading;
+using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QuietShield.App.ViewModels;
 using QuietShield.Licensing;
+using QuietShield.Windows.Diagnostics;
+using QuietShield.Windows.Discovery;
+using QuietShield.Windows.Discovery.Applications;
 using QuietShield.Windows.Integration;
 
 namespace QuietShield.App;
@@ -21,18 +25,29 @@ public partial class App : Application
         builder.Logging.ClearProviders();
         builder.Logging.AddDebug();
 
+        builder.Services.AddSingleton<IPowerShellJsonRunner, PowerShellJsonRunner>();
+        builder.Services.AddSingleton<IUninstallRegistrationSource, RegistryUninstallRegistrationSource>();
+        builder.Services.AddSingleton<IStorePackageSource, PowerShellStorePackageSource>();
+        builder.Services.AddSingleton<IStartMenuEntrySource, StartMenuEntrySource>();
+        builder.Services.AddSingleton<IDiscoveryClock, SystemDiscoveryClock>();
+        builder.Services.AddSingleton<IApplicationInventoryCache>(services => new JsonApplicationInventoryCache(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietShield", "Discovery", "applications.json"),
+            services.GetRequiredService<IDiscoveryClock>()));
+        builder.Services.AddSingleton<ApplicationInventoryService>();
+        builder.Services.AddSingleton<IApplicationInventoryService>(services => services.GetRequiredService<ApplicationInventoryService>());
+        builder.Services.AddSingleton<IInstalledApplicationDiscovery>(services => services.GetRequiredService<ApplicationInventoryService>());
         builder.Services.AddSingleton<INetworkEnvironmentDiscovery, ReadOnlyNetworkEnvironmentDiscovery>();
         builder.Services.AddSingleton<IDnsConfigurationDiscovery, ReadOnlyDnsConfigurationDiscovery>();
-        builder.Services.AddSingleton<IInstalledApplicationDiscovery, DeferredInstalledApplicationDiscovery>();
-        builder.Services.AddSingleton<IWin32ExecutableDiscovery, DeferredWin32ExecutableDiscovery>();
-        builder.Services.AddSingleton<IStoreApplicationIdentityDiscovery, DeferredStoreApplicationIdentityDiscovery>();
-        builder.Services.AddSingleton<IFirewallStateDiscovery, DeferredFirewallStateDiscovery>();
-        builder.Services.AddSingleton<IFilteringPlatformCapabilityDiscovery, DeferredFilteringPlatformCapabilityDiscovery>();
-        builder.Services.AddSingleton<IWindowsServiceStateDiscovery, DeferredWindowsServiceStateDiscovery>();
+        builder.Services.AddSingleton<IFirewallStateDiscovery, ReadOnlyFirewallStateDiscovery>();
+        builder.Services.AddSingleton<IFilteringPlatformCapabilityDiscovery, ReadOnlyFilteringPlatformCapabilityDiscovery>();
+        builder.Services.AddSingleton<IWindowsServiceStateDiscovery, ReadOnlyWindowsServiceStateDiscovery>();
         builder.Services.AddSingleton<IStartupCapabilityDiscovery, DeferredStartupCapabilityDiscovery>();
         builder.Services.AddSingleton<INotificationCapabilityDiscovery, DeferredNotificationCapabilityDiscovery>();
-        builder.Services.AddSingleton<IPowerStateDiscovery, DeferredPowerStateDiscovery>();
+        builder.Services.AddSingleton<IPowerStateDiscovery, ReadOnlyPowerStateDiscovery>();
         builder.Services.AddSingleton<ISystemTrayFoundation, FoundationSystemTrayService>();
+        builder.Services.AddSingleton<INetworkRefreshNotificationSource, WindowsNetworkRefreshNotificationSource>();
+        builder.Services.AddSingleton<IReadOnlyDiscoveryCoordinator, ReadOnlyDiscoveryCoordinator>();
+        builder.Services.AddSingleton<IPrivacySafeDiagnosticExporter, PrivacySafeDiagnosticExporter>();
         builder.Services.AddSingleton<ILicenseService, FoundationLicenseService>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
@@ -47,7 +62,14 @@ public partial class App : Application
         var viewModel = _host.Services.GetRequiredService<MainViewModel>();
         await viewModel.InitializeAsync(CancellationToken.None).ConfigureAwait(true);
 
-        if (e.Args.Contains("--foundation-smoke", StringComparer.OrdinalIgnoreCase))
+        var diagnosticOutputIndex = Array.FindIndex(e.Args, static argument => argument.Equals("--diagnostic-output", StringComparison.OrdinalIgnoreCase));
+        if (diagnosticOutputIndex >= 0 && diagnosticOutputIndex + 1 < e.Args.Length)
+        {
+            await viewModel.ExportValidationDiagnosticAsync(e.Args[diagnosticOutputIndex + 1], CancellationToken.None).ConfigureAwait(true);
+        }
+
+        if (e.Args.Contains("--foundation-smoke", StringComparer.OrdinalIgnoreCase) ||
+            e.Args.Contains("--phase2-smoke", StringComparer.OrdinalIgnoreCase))
         {
             var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             timer.Tick += (_, _) =>

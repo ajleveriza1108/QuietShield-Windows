@@ -56,11 +56,11 @@ public sealed class DeferredFilteringPlatformCapabilityDiscovery : IFilteringPla
 
 public sealed class DeferredWindowsServiceStateDiscovery : IWindowsServiceStateDiscovery
 {
-    public Task<OperationResult<ServiceStateSnapshot>> DiscoverAsync(string serviceName, CancellationToken cancellationToken)
+    public Task<OperationResult<ServiceStateSnapshot>> DiscoverAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(OperationResult.NotImplemented<ServiceStateSnapshot>(
-            $"Service-state discovery for '{serviceName}' is deferred; no service-control API was called."));
+            "Service-state discovery is deferred; no service-control API was called."));
     }
 }
 

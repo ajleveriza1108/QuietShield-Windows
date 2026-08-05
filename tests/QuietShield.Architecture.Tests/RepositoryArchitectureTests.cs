@@ -170,6 +170,30 @@ public sealed class RepositoryArchitectureTests
         Assert.IsFalse(content.Contains("UseWindowsService", StringComparison.OrdinalIgnoreCase));
     }
 
+    [TestMethod]
+    public void Phase2DependencyInjectionRegistersOnlyReadOnlyDiscoveryImplementations()
+    {
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "App.xaml.cs"));
+        foreach (var required in new[]
+        {
+            "ApplicationInventoryService", "ReadOnlyNetworkEnvironmentDiscovery", "ReadOnlyDnsConfigurationDiscovery",
+            "ReadOnlyFirewallStateDiscovery", "ReadOnlyFilteringPlatformCapabilityDiscovery",
+            "ReadOnlyWindowsServiceStateDiscovery", "ReadOnlyPowerStateDiscovery", "ReadOnlyDiscoveryCoordinator"
+        })
+        {
+            StringAssert.Contains(source, required);
+        }
+
+        foreach (var forbidden in new[]
+        {
+            "DeferredInstalledApplicationDiscovery", "DeferredFirewallStateDiscovery", "DeferredFilteringPlatformCapabilityDiscovery",
+            "ITransactionalWindowsChange<", "InstallCleanup", "Set-NetFirewall", "Set-DnsClient"
+        })
+        {
+            Assert.IsFalse(source.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"App dependency injection contains forbidden implementation or mutation fragment '{forbidden}'.");
+        }
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

@@ -7,6 +7,18 @@ public interface IInstalledApplicationDiscovery
     Task<OperationResult<IReadOnlyList<InstalledApplicationInfo>>> DiscoverAsync(CancellationToken cancellationToken);
 }
 
+public interface IApplicationInventoryService
+{
+    bool LastResultUsedCache { get; }
+
+    Task<OperationResult<IReadOnlyList<InstalledApplicationInfo>>> DiscoverAsync(
+        bool forceRefresh,
+        IProgress<DiscoveryProgress>? progress,
+        CancellationToken cancellationToken);
+
+    Task ClearCacheAsync(CancellationToken cancellationToken);
+}
+
 public interface IWin32ExecutableDiscovery
 {
     Task<OperationResult<IReadOnlyList<Win32ExecutableInfo>>> DiscoverAsync(CancellationToken cancellationToken);
@@ -39,7 +51,7 @@ public interface IFilteringPlatformCapabilityDiscovery
 
 public interface IWindowsServiceStateDiscovery
 {
-    Task<OperationResult<ServiceStateSnapshot>> DiscoverAsync(string serviceName, CancellationToken cancellationToken);
+    Task<OperationResult<ServiceStateSnapshot>> DiscoverAsync(CancellationToken cancellationToken);
 }
 
 public interface IStartupCapabilityDiscovery
@@ -60,6 +72,23 @@ public interface IPowerStateDiscovery
 public interface ISystemTrayFoundation
 {
     Task<OperationResult<SystemTrayCapabilitySnapshot>> GetCapabilityAsync(CancellationToken cancellationToken);
+}
+
+public interface IReadOnlyDiscoveryCoordinator
+{
+    Task<ReadOnlyDiscoveryBundle> RefreshAsync(
+        bool forceApplicationRefresh,
+        IProgress<DiscoveryProgress>? progress,
+        CancellationToken cancellationToken);
+
+    Task ClearSafeCacheAsync(CancellationToken cancellationToken);
+}
+
+public interface INetworkRefreshNotificationSource : IDisposable
+{
+    event EventHandler? RefreshRequested;
+
+    void Start();
 }
 
 public interface ITransactionalWindowsChange<in TPlan, TBackup>
