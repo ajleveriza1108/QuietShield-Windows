@@ -194,6 +194,43 @@ public sealed class RepositoryArchitectureTests
         }
     }
 
+    [TestMethod]
+    public void Phase3DependencyInjectionRegistersOnlyInMemoryDnsSimulationServices()
+    {
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "App.xaml.cs"));
+        foreach (var required in new[]
+        {
+            "NonProductionSampleSignatureVerifier", "InMemoryProtectionListStore", "ProtectionListActivator",
+            "InMemoryCustomDomainListService", "InMemoryDnsDecisionCache"
+        })
+        {
+            StringAssert.Contains(source, required);
+        }
+
+        foreach (var forbidden in new[]
+        {
+            "LoopbackDiagnosticDnsListener", "ReadOnlySystemDnsResolver", "DeferredUpstreamDnsResolver",
+            "FoundationDnsOverHttpsCapabilityProvider", "IDiagnosticDnsListener", "ISystemDnsResolver",
+            "IUpstreamDnsResolver", "Set-DnsClient", "DnsClientServerAddress"
+        })
+        {
+            Assert.IsFalse(
+                source.Contains(forbidden, StringComparison.OrdinalIgnoreCase),
+                $"App dependency injection contains a diagnostic, resolver, or modifying DNS implementation '{forbidden}'.");
+        }
+    }
+
+    [TestMethod]
+    public void DiagnosticDnsListenerSourceIsLoopbackOnlyDynamicAndNeverPort53()
+    {
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Windows", "Dns", "ResolverFoundations.cs"));
+
+        StringAssert.Contains(source, "IPAddress.Loopback, 0");
+        Assert.IsFalse(source.Contains("IPAddress.Any", StringComparison.Ordinal));
+        Assert.IsFalse(source.Contains("IPAddress.IPv6Any", StringComparison.Ordinal));
+        Assert.IsFalse(source.Contains("Loopback, 53", StringComparison.Ordinal));
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

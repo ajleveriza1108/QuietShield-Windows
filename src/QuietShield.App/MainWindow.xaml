@@ -283,7 +283,86 @@
                     </StackPanel>
 
                     <StackPanel Visibility="{Binding IsDnsProtection, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border Style="{StaticResource CardStyle}" Margin="0"><StackPanel><TextBlock FontSize="22" FontWeight="SemiBold" Text="QuietShield DNS Protection: Not active" /><TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Text="{Binding DnsSummary}" /><TextBlock Margin="0,10,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="DNS servers are displayed from read-only adapter configuration. QuietShield performs no interception." /></StackPanel></Border>
+                        <Border Margin="0,0,0,16" Padding="16" Background="{StaticResource AccentSoftBrush}" CornerRadius="9">
+                            <StackPanel>
+                                <TextBlock FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Text="QuietShield DNS Protection: Simulation Only" />
+                                <TextBlock Margin="0,7,0,0" FontWeight="SemiBold" Text="{Binding DnsNoWindowsChangeStatement}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Current detected DNS configuration" />
+                                <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Text="{Binding DnsSummary}" />
+                                <TextBlock Margin="0,8,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="This is read-only adapter information. QuietShield does not intercept or redirect DNS." TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Test a domain locally" />
+                                <Grid Margin="0,14,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" Margin="0,0,10,0" Padding="9" Text="{Binding DnsTestDomain, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="DNS test domain" />
+                                    <ComboBox Grid.Column="1" Margin="0,0,10,0" ItemsSource="{Binding DnsProtectionModes}" SelectedItem="{Binding SelectedDnsProtectionMode}" AutomationProperties.Name="DNS protection simulation mode" />
+                                    <Button Grid.Column="2" Padding="16,8" Command="{Binding SimulateDnsCommand}" Content="Simulate" />
+                                </Grid>
+                                <UniformGrid Margin="0,18,0,0" Columns="2">
+                                    <StackPanel Margin="0,0,20,12"><TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="DECISION" /><TextBlock Margin="0,5,0,0" FontSize="18" FontWeight="SemiBold" Text="{Binding DnsDecision}" TextWrapping="Wrap" /></StackPanel>
+                                    <StackPanel Margin="0,0,20,12"><TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="CATEGORY" /><TextBlock Margin="0,5,0,0" FontSize="18" FontWeight="SemiBold" Text="{Binding DnsCategory}" /></StackPanel>
+                                    <StackPanel Margin="0,0,20,12"><TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="MATCHED RULE" /><TextBlock Margin="0,5,0,0" Text="{Binding DnsMatchedRule}" TextWrapping="Wrap" /></StackPanel>
+                                    <StackPanel Margin="0,0,20,12"><TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="REASON" /><TextBlock Margin="0,5,0,0" Text="{Binding DnsReason}" TextWrapping="Wrap" /></StackPanel>
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Protection-list status" />
+                                <TextBlock Margin="0,9,0,0" Text="{Binding ProtectionListStatus}" TextWrapping="Wrap" />
+                                <TextBlock Margin="0,7,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding LastKnownGoodListStatus}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0">
+                            <StackPanel>
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Custom allowlist and blocklist — simulation only" />
+                                <TextBox Margin="0,12,0,12" Padding="9" Text="{Binding CustomDnsSearch, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Search custom DNS entries" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="5*" /><ColumnDefinition Width="4*" /></Grid.ColumnDefinitions>
+                                    <ListBox Grid.Column="0" Margin="0,0,16,0" ItemsSource="{Binding CustomDnsEntries}" SelectedItem="{Binding SelectedCustomDnsEntry}" MinHeight="220" MaxHeight="360">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <TextBlock FontWeight="SemiBold" Text="{Binding DomainPattern}" />
+                                                    <TextBlock FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding ListKind}" />
+                                                    <TextBlock FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding MatchKind}" />
+                                                    <TextBlock FontSize="11" Foreground="{StaticResource WarningBrush}" Text="Parent protected" Visibility="{Binding ParentProtected, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Domain or safe wildcard" />
+                                        <TextBox Margin="0,5,0,10" Padding="8" Text="{Binding CustomDnsDomain, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBlock Text="List" />
+                                        <ComboBox Margin="0,5,0,10" ItemsSource="{Binding CustomDomainListKinds}" SelectedItem="{Binding SelectedCustomListKind}" />
+                                        <TextBlock Text="Matching" />
+                                        <ComboBox Margin="0,5,0,10" ItemsSource="{Binding DnsRuleMatchKinds}" SelectedItem="{Binding SelectedCustomMatchKind}" />
+                                        <TextBlock Text="Notes" />
+                                        <TextBox Margin="0,5,0,10" Padding="8" MaxLength="500" Text="{Binding CustomDnsNotes, UpdateSourceTrigger=PropertyChanged}" />
+                                        <CheckBox Margin="0,2,0,12" IsChecked="{Binding CustomDnsParentProtected}" Content="Parent protected" />
+                                        <WrapPanel>
+                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding AddCustomDnsCommand}" Content="Add" />
+                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding EditCustomDnsCommand}" Content="Edit selected" />
+                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding RemoveCustomDnsCommand}" Content="Remove selected" />
+                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding ClearDnsDecisionCacheCommand}" Content="Clear decision cache" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Margin="0,12,0,0" Text="{Binding CustomDnsStatus}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
 
                     <StackPanel Visibility="{Binding IsActivity, Converter={StaticResource BooleanToVisibilityConverter}}">

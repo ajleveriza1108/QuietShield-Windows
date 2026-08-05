@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Microsoft.Extensions.Logging;
+using QuietShield.Core.Dns;
 using QuietShield.Core.Protection;
 using QuietShield.Core.Simulation;
 using QuietShield.Licensing;
@@ -40,6 +41,10 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly IPrivacySafeDiagnosticExporter _diagnostics;
     private readonly ILicenseService _licenseService;
     private readonly ISystemTrayFoundation _systemTray;
+    private readonly ProtectionListActivator _dnsListActivator;
+    private readonly IProtectionListStore _dnsListStore;
+    private readonly ICustomDomainListService _customDnsLists;
+    private readonly IDnsDecisionCache _dnsDecisionCache;
     private readonly ILogger<MainViewModel> _logger;
     private readonly ObservableCollection<ApplicationListItem> _allApplications = new();
     private CancellationTokenSource? _refreshCancellation;
@@ -71,6 +76,10 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         IPrivacySafeDiagnosticExporter diagnostics,
         ILicenseService licenseService,
         ISystemTrayFoundation systemTray,
+        ProtectionListActivator dnsListActivator,
+        IProtectionListStore dnsListStore,
+        ICustomDomainListService customDnsLists,
+        IDnsDecisionCache dnsDecisionCache,
         ILogger<MainViewModel> logger)
     {
         _discovery = discovery;
@@ -78,6 +87,10 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _diagnostics = diagnostics;
         _licenseService = licenseService;
         _systemTray = systemTray;
+        _dnsListActivator = dnsListActivator;
+        _dnsListStore = dnsListStore;
+        _customDnsLists = customDnsLists;
+        _dnsDecisionCache = dnsDecisionCache;
         _logger = logger;
         NavigationItems = new ObservableCollection<NavigationItem>
         {
@@ -88,7 +101,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             new("Metered Data Watch", "Current Windows metered state; no traffic accounting"),
             new("Aggressive Program Watch", "Monitoring engine status"),
             new("Compatibility Guard", "Simulated exclusions only"),
-            new("DNS Protection", "Current DNS configuration; protection inactive"),
+            new("DNS Protection", "Local DNS policy and list simulation; Windows DNS unchanged"),
             new("Activity and Statistics", "Read-only discovery activity only"),
             new("Settings", "Refresh, cancel, cache, and privacy-safe diagnostics")
         };
@@ -97,6 +110,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         CancelCommand = new AsyncRelayCommand(CancelAsync, () => IsRefreshing);
         ClearCacheCommand = new AsyncRelayCommand(ClearCacheAsync, () => !IsRefreshing);
         ExportDiagnosticsCommand = new AsyncRelayCommand(ExportDiagnosticsAsync, () => _bundle is not null && !IsRefreshing);
+        InitializeDnsCommands();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -137,7 +151,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsActivity => SelectedPage.Title == "Activity and Statistics";
     public bool IsSettings => SelectedPage.Title == "Settings";
     public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsActivity || IsSettings);
-    public string VersionText { get; } = "Version 0.2.0 — Read-Only Discovery";
+    public string VersionText { get; } = "Version 0.3.0 — DNS Engine Foundation";
     public string ProtectionState { get; } = "Foundation Mode / Protection Not Activated";
     public string ActiveProfile { get; } = "Simulation only";
     public string SimulationBanner { get; } = PolicySimulationResult.SimulationOnlyLabel;
@@ -170,6 +184,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         LicenseSummary = license.DisplayStatus;
         var tray = await _systemTray.GetCapabilityAsync(cancellationToken).ConfigureAwait(true);
         TraySummary = tray.Message;
+        await InitializeDnsFoundationAsync(cancellationToken).ConfigureAwait(true);
         await RefreshAsync(false).ConfigureAwait(true);
         LogInitialized(_logger);
     }
@@ -292,6 +307,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private void RaiseCommandStates()
     {
         foreach (var command in new[] { RefreshCommand, CancelCommand, ClearCacheCommand, ExportDiagnosticsCommand }.OfType<AsyncRelayCommand>()) command.RaiseCanExecuteChanged();
+        RaiseDnsCommandStates();
     }
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
@@ -302,6 +318,6 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     }
     private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
-    [LoggerMessage(EventId = 2002, Level = LogLevel.Information, Message = "QuietShield Phase 2 read-only discovery dashboard initialized; protection engines remain inactive.")]
+    [LoggerMessage(EventId = 2003, Level = LogLevel.Information, Message = "QuietShield Phase 3 DNS simulation foundation initialized; Windows DNS and protection engines remain unchanged.")]
     private static partial void LogInitialized(ILogger logger);
 }

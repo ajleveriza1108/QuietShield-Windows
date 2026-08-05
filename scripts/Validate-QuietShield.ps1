@@ -91,7 +91,7 @@ try {
         'trx'
     )
 
-    Write-Output 'Running Phase 2 application, network, policy simulation, and diagnostic export smoke tests.'
+    Write-Output 'Running Phase 3 DNS simulation and protection-list activation/rollback smoke tests.'
     Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
         'test',
         $solution,
@@ -101,7 +101,7 @@ try {
         '--no-restore',
         '-p:Platform=x64',
         '--filter',
-        'TestCategory=Phase2Smoke'
+        'TestCategory=Phase3Smoke'
     )
 
     $testCount = 0
@@ -125,9 +125,9 @@ try {
         throw ("WPF application executable was not found: {0}" -f $appPath)
     }
 
-    $diagnosticPath = Join-Path $testResults 'phase2-live-diagnostic.json'
-    Write-Output ('Starting WPF Phase 2 read-only smoke process: ' + $appPath)
-    $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @('--phase2-smoke', '--diagnostic-output', ('"' + $diagnosticPath + '"')) -WorkingDirectory (Split-Path -Parent $appPath) -PassThru
+    $diagnosticPath = Join-Path $testResults 'phase3-live-diagnostic.json'
+    Write-Output ('Starting WPF Phase 3 DNS simulation smoke process: ' + $appPath)
+    $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @('--phase3-smoke', '--diagnostic-output', ('"' + $diagnosticPath + '"')) -WorkingDirectory (Split-Path -Parent $appPath) -PassThru
     $exited = $applicationProcess.WaitForExit(30000)
     if (-not $exited) {
         throw ("WPF smoke process did not exit within 30 seconds. Process ID {0} was not terminated automatically." -f $applicationProcess.Id)
@@ -136,7 +136,7 @@ try {
         throw ("WPF smoke process returned exit code {0}." -f $applicationProcess.ExitCode)
     }
     if (-not (Test-Path -LiteralPath $diagnosticPath)) {
-        throw 'The WPF Phase 2 smoke did not create its requested privacy-safe diagnostic summary.'
+        throw 'The WPF Phase 3 smoke did not create its requested privacy-safe diagnostic summary.'
     }
     $liveDiagnostic = Get-Content -LiteralPath $diagnosticPath -Raw | ConvertFrom-Json
     if ([int]$liveDiagnostic.applicationTotal -le 0) {
@@ -165,7 +165,7 @@ try {
     }
 
     $validation = [ordered]@{
-        schemaVersion = 2
+        schemaVersion = 3
         timestamp = (Get-Date).ToString('o')
         status = 'Passed'
         powershellVersion = $PSVersionTable.PSVersion.ToString()
@@ -180,10 +180,9 @@ try {
             passed = $passedCount
             failed = $failedCount
         }
-        phase2SmokeTests = [ordered]@{
-            applicationInventory = 'Passed'
-            networkDiscovery = 'Passed'
-            policySimulation = 'Passed'
+        phase3SmokeTests = [ordered]@{
+            dnsSimulation = 'Passed'
+            protectionListActivationRollback = 'Passed'
             privacySafeDiagnosticExport = 'Passed'
         }
         detected = [ordered]@{

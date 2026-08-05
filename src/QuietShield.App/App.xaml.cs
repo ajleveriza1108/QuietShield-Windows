@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QuietShield.App.ViewModels;
+using QuietShield.Core.Dns;
 using QuietShield.Licensing;
 using QuietShield.Windows.Diagnostics;
 using QuietShield.Windows.Discovery;
@@ -48,6 +49,12 @@ public partial class App : Application
         builder.Services.AddSingleton<INetworkRefreshNotificationSource, WindowsNetworkRefreshNotificationSource>();
         builder.Services.AddSingleton<IReadOnlyDiscoveryCoordinator, ReadOnlyDiscoveryCoordinator>();
         builder.Services.AddSingleton<IPrivacySafeDiagnosticExporter, PrivacySafeDiagnosticExporter>();
+        builder.Services.AddSingleton<IDnsClock, SystemDnsClock>();
+        builder.Services.AddSingleton<IProtectionListSignatureVerifier, NonProductionSampleSignatureVerifier>();
+        builder.Services.AddSingleton<IProtectionListStore, InMemoryProtectionListStore>();
+        builder.Services.AddSingleton<ProtectionListActivator>();
+        builder.Services.AddSingleton<ICustomDomainListService, InMemoryCustomDomainListService>();
+        builder.Services.AddSingleton<IDnsDecisionCache>(services => new InMemoryDnsDecisionCache(services.GetRequiredService<IDnsClock>(), 512));
         builder.Services.AddSingleton<ILicenseService, FoundationLicenseService>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
@@ -69,7 +76,8 @@ public partial class App : Application
         }
 
         if (e.Args.Contains("--foundation-smoke", StringComparer.OrdinalIgnoreCase) ||
-            e.Args.Contains("--phase2-smoke", StringComparer.OrdinalIgnoreCase))
+            e.Args.Contains("--phase2-smoke", StringComparer.OrdinalIgnoreCase) ||
+            e.Args.Contains("--phase3-smoke", StringComparer.OrdinalIgnoreCase))
         {
             var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             timer.Tick += (_, _) =>

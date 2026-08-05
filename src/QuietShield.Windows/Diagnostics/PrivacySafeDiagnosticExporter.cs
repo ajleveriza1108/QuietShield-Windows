@@ -52,7 +52,7 @@ public sealed partial class PrivacySafeDiagnosticExporter : IPrivacySafeDiagnost
         var errors = bundle.Activity.Where(static item => !item.Succeeded).Select(static item => Redact(item.Message)).ToArray();
 
         return new PrivacySafeDiagnosticSummary(
-            "0.2.0",
+            "0.3.0",
             Environment.OSVersion.VersionString,
             RuntimeInformation.OSArchitecture.ToString(),
             Environment.Version.ToString(),
