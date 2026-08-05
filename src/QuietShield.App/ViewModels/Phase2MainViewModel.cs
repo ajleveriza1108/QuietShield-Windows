@@ -47,6 +47,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly ICustomDomainListService _customDnsLists;
     private readonly IDnsDecisionCache _dnsDecisionCache;
     private readonly ILocalDnsRuntimeDiagnostic _dnsRuntimeDiagnostic;
+    private readonly IDnsRehearsalReadinessDiscovery _dnsRehearsalReadinessDiscovery;
     private readonly ILogger<MainViewModel> _logger;
     private readonly ObservableCollection<ApplicationListItem> _allApplications = new();
     private CancellationTokenSource? _refreshCancellation;
@@ -83,6 +84,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         ICustomDomainListService customDnsLists,
         IDnsDecisionCache dnsDecisionCache,
         ILocalDnsRuntimeDiagnostic dnsRuntimeDiagnostic,
+        IDnsRehearsalReadinessDiscovery dnsRehearsalReadinessDiscovery,
         ILogger<MainViewModel> logger)
     {
         _discovery = discovery;
@@ -95,6 +97,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _customDnsLists = customDnsLists;
         _dnsDecisionCache = dnsDecisionCache;
         _dnsRuntimeDiagnostic = dnsRuntimeDiagnostic;
+        _dnsRehearsalReadinessDiscovery = dnsRehearsalReadinessDiscovery;
         _logger = logger;
         NavigationItems = new ObservableCollection<NavigationItem>
         {
@@ -156,7 +159,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsActivity => SelectedPage.Title == "Activity and Statistics";
     public bool IsSettings => SelectedPage.Title == "Settings";
     public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsActivity || IsSettings);
-    public string VersionText { get; } = "Version 0.4.0 — DNS Runtime and Transaction Foundation";
+    public string VersionText { get; } = "Version 0.5.0 — Controlled DNS Activation Rehearsal";
     public string ProtectionState { get; } = "Foundation Mode / Protection Not Activated";
     public string ActiveProfile { get; } = "Simulation only";
     public string SimulationBanner { get; } = PolicySimulationResult.SimulationOnlyLabel;
@@ -190,6 +193,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         var tray = await _systemTray.GetCapabilityAsync(cancellationToken).ConfigureAwait(true);
         TraySummary = tray.Message;
         await InitializeDnsFoundationAsync(cancellationToken).ConfigureAwait(true);
+        await InitializeDnsRehearsalReadinessAsync(cancellationToken).ConfigureAwait(true);
         await RefreshAsync(false).ConfigureAwait(true);
         LogInitialized(_logger);
     }

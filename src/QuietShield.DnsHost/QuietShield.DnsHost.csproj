@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>QuietShield.DnsHost</AssemblyName>
+    <RootNamespace>QuietShield.DnsHost</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\QuietShield.Core\QuietShield.Core.csproj" />
+    <ProjectReference Include="..\QuietShield.Windows\QuietShield.Windows.csproj" />
+  </ItemGroup>
+
+</Project>

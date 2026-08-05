@@ -59,6 +59,8 @@ public partial class App : Application
         builder.Services.AddSingleton<IDnsRuntimePolicyConfiguration, FoundationDnsRuntimePolicyConfiguration>();
         builder.Services.AddSingleton<IDnsRuntimePolicyEvaluator, FoundationDnsRuntimePolicyEvaluator>();
         builder.Services.AddSingleton<ILocalDnsRuntimeDiagnostic, LocalDnsRuntimeDiagnostic>();
+        builder.Services.AddSingleton<IDnsListenerSnapshotSource, SystemDnsListenerSnapshotSource>();
+        builder.Services.AddSingleton<IDnsRehearsalReadinessDiscovery, ReadOnlyDnsRehearsalReadinessDiscovery>();
         builder.Services.AddSingleton<ILicenseService, FoundationLicenseService>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
@@ -82,7 +84,8 @@ public partial class App : Application
         if (e.Args.Contains("--foundation-smoke", StringComparer.OrdinalIgnoreCase) ||
             e.Args.Contains("--phase2-smoke", StringComparer.OrdinalIgnoreCase) ||
             e.Args.Contains("--phase3-smoke", StringComparer.OrdinalIgnoreCase) ||
-            e.Args.Contains("--phase4-smoke", StringComparer.OrdinalIgnoreCase))
+            e.Args.Contains("--phase4-smoke", StringComparer.OrdinalIgnoreCase) ||
+            e.Args.Contains("--phase5-smoke", StringComparer.OrdinalIgnoreCase))
         {
             var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             timer.Tick += (_, _) =>

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "productMarker": "QuietShield",
+  "purpose": "DnsActivationRehearsalBackup",
+  "backupId": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+  "rehearsalId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "createdAtUtc": "2026-08-06T00:00:00.0000000+00:00",
+  "adapter": {
+    "identity": {
+      "interfaceGuid": "11111111-2222-3333-4444-555555555555",
+      "interfaceIndex": 7
+    },
+    "kind": "WiFi",
+    "families": [
+      {
+        "addressFamily": "IPv4",
+        "enabled": true,
+        "automatic": false,
+        "serverAddresses": [
+          "192.0.2.53",
+          "192.0.2.54",
+          "192.0.2.53"
+        ]
+      },
+      {
+        "addressFamily": "IPv6",
+        "enabled": true,
+        "automatic": true,
+        "serverAddresses": [
+          "2001:db8::53",
+          "2001:db8::53"
+        ]
+      }
+    ]
+  },
+  "payloadSha256": "4399B9ED8F7594D46DFC30FB65D6227B61535D77CC303F81D8CC4F9A51D4934E"
+}

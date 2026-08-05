@@ -350,6 +350,41 @@
 
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Controlled activation rehearsal readiness" />
+                                <Border Margin="0,12,0,14" Padding="12" Background="{StaticResource AccentSoftBrush}" CornerRadius="7">
+                                    <TextBlock Foreground="{StaticResource AccentBrush}"
+                                               FontWeight="SemiBold"
+                                               Text="Temporary rehearsal only. Original DNS will be restored automatically."
+                                               TextWrapping="Wrap" />
+                                </Border>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,18,0">
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="ACTIVATION REHEARSAL READINESS" />
+                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalReadiness}" TextWrapping="Wrap" />
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="ACTIVE ADAPTER" />
+                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalActiveAdapter}" TextWrapping="Wrap" />
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="PORT 53 AVAILABILITY" />
+                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalPort53}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="ORIGINAL DNS BACKUP STATUS" />
+                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalBackup}" TextWrapping="Wrap" />
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="WATCHDOG READINESS" />
+                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalWatchdog}" TextWrapping="Wrap" />
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="LAST REHEARSAL RESULT" />
+                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalLastResult}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Margin="0,4,0,0"
+                                           Foreground="{StaticResource WarningBrush}"
+                                           Text="No permanent Activate control is provided. The rehearsal runs only from the explicit elevated command."
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
                                 <TextBlock FontSize="18" FontWeight="SemiBold" Text="Protection-list status" />
                                 <TextBlock Margin="0,9,0,0" Text="{Binding ProtectionListStatus}" TextWrapping="Wrap" />
                                 <TextBlock Margin="0,7,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding LastKnownGoodListStatus}" TextWrapping="Wrap" />

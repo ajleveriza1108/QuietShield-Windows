@@ -58,7 +58,9 @@ public sealed class RepositoryArchitectureTests
             ["QuietShield.Core"] = Array.Empty<string>(),
             ["QuietShield.Licensing"] = Array.Empty<string>(),
             ["QuietShield.Service"] = new[] { "QuietShield.Core", "QuietShield.Windows" },
-            ["QuietShield.Windows"] = new[] { "QuietShield.Core" }
+            ["QuietShield.Windows"] = new[] { "QuietShield.Core" },
+            ["QuietShield.DnsHost"] = new[] { "QuietShield.Core", "QuietShield.Windows" },
+            ["QuietShield.DnsWatchdog"] = new[] { "QuietShield.Core" }
         };
 
         foreach (var projectPath in Directory.EnumerateFiles(
@@ -152,7 +154,8 @@ public sealed class RepositoryArchitectureTests
             var content = File.ReadAllText(script);
             foreach (var fragment in forbiddenFragments)
             {
-                if (Path.GetFileName(script).Equals("Restore-OriginalDns.ps1", StringComparison.OrdinalIgnoreCase) &&
+                if (new[] { "Restore-OriginalDns.ps1", "Restore-RehearsalDns.ps1", "Invoke-DnsActivationRehearsal.ps1" }
+                        .Contains(Path.GetFileName(script), StringComparer.OrdinalIgnoreCase) &&
                     fragment.Equals("Set-DnsClient", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -202,6 +205,197 @@ public sealed class RepositoryArchitectureTests
         Assert.IsFalse(content.Contains("WindowsServices", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(content.Contains("ServiceName", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(content.Contains("UseWindowsService", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void RehearsalHostAndWatchdogCannotRegisterPermanentServices()
+    {
+        foreach (var project in new[] { "QuietShield.DnsHost", "QuietShield.DnsWatchdog" })
+        {
+            var directory = Path.Combine(RepositoryRoot, "src", project);
+            var content = string.Join(Environment.NewLine,
+                Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                    .Where(static path => Path.GetExtension(path) is ".cs" or ".csproj")
+                    .Select(File.ReadAllText));
+            foreach (var forbidden in new[] { "UseWindowsService", "WindowsServices", "ServiceInstaller", "ServiceName", "sc.exe", "New-Service" })
+            {
+                Assert.IsFalse(content.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"{project} contains permanent service-registration fragment '{forbidden}'.");
+            }
+        }
+    }
+
+    [TestMethod]
+    public void RehearsalMutationSurfaceIsNarrowAndNeverSelfElevates()
+    {
+        var invoke = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "Invoke-DnsActivationRehearsal.ps1"));
+        var restore = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "Restore-RehearsalDns.ps1"));
+        var launcher = File.ReadAllText(Path.Combine(RepositoryRoot, "Run-DnsActivationRehearsal.bat"));
+        foreach (var source in new[] { invoke, restore, launcher })
+        {
+            Assert.IsFalse(source.Contains("-Verb RunAs", StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(source.Contains("Start-Process powershell", StringComparison.OrdinalIgnoreCase));
+            foreach (var forbidden in new[] { "Set-NetFirewall", "New-NetFirewall", "Remove-NetFirewall", "Set-NetIPInterface", "Disable-NetAdapter", "Enable-NetAdapter", "Set-ItemProperty", "New-ItemProperty" })
+            {
+                Assert.IsFalse(source.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"Rehearsal source contains unrelated mutation '{forbidden}'.");
+            }
+        }
+        StringAssert.Contains(invoke, "-ApprovedTemporaryActivation");
+        StringAssert.Contains(invoke, "Set-DnsClientServerAddress");
+        StringAssert.Contains(restore, "Test-QuietShieldRehearsalBackup");
+        StringAssert.Contains(restore, "Test-QuietShieldAdapterIsExactRehearsalMatch");
+    }
+
+    [TestMethod]
+    public void RehearsalAdapterBindingLookupIsPowerShell51CompatibleAndIdentityChecked()
+    {
+        var invoke = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "Invoke-DnsActivationRehearsal.ps1"));
+        Assert.IsFalse(
+            System.Text.RegularExpressions.Regex.IsMatch(
+                invoke,
+                @"Get-NetAdapterBinding\s+-InterfaceIndex",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+            "Get-NetAdapterBinding must never be invoked with the unsupported -InterfaceIndex parameter.");
+        foreach (var required in new[]
+        {
+            "[string]::IsNullOrWhiteSpace($adapterName)",
+            "Get-NetAdapter -Name $adapterName",
+            "$namedAdapters.Count -ne 1",
+            "$namedAdapters[0].InterfaceIndex -ne [int]$selected.Adapter.InterfaceIndex",
+            "Get-NetAdapterBinding -Name $adapterName -ComponentID 'ms_tcpip6'"
+        })
+        {
+            StringAssert.Contains(invoke, required);
+        }
+    }
+
+    [TestMethod]
+    public void RehearsalRestorationComparisonPreservesDuplicatesAndOrder()
+    {
+        var commonPath = Path.Combine(RepositoryRoot, "scripts", "DnsTransaction.Script.Common.ps1").Replace("'", "''", StringComparison.Ordinal);
+        var command = $". '{commonPath}'; " +
+            "if (-not (Test-QuietShieldStringArrayExact -Expected @('a','b','a') -Actual @('a','b','a'))) { exit 1 }; " +
+            "if (Test-QuietShieldStringArrayExact -Expected @('a','b','a') -Actual @('a','b')) { exit 2 }; " +
+            "if (Test-QuietShieldStringArrayExact -Expected @('a','b','a') -Actual @('a','a','b')) { exit 3 }; exit 0";
+        var start = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-ExecutionPolicy");
+        start.ArgumentList.Add("Bypass");
+        start.ArgumentList.Add("-Command");
+        start.ArgumentList.Add(command);
+        using var process = System.Diagnostics.Process.Start(start);
+        Assert.IsNotNull(process);
+        Assert.IsTrue(process.WaitForExit(10_000), "PowerShell restoration comparison regression test timed out.");
+        Assert.AreEqual(0, process.ExitCode, process.StandardError.ReadToEnd());
+
+        var restore = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "Restore-RehearsalDns.ps1"));
+        StringAssert.Contains(restore, "$servers = @($family.serverAddresses");
+        StringAssert.Contains(restore, "-ServerAddresses $servers");
+        StringAssert.Contains(restore, "Test-QuietShieldStringArrayExact -Expected @($family.serverAddresses) -Actual @($current[0].ServerAddresses)");
+    }
+
+    [TestMethod]
+    public void PowerShell51BackupValidatorAcceptsAndHashesOrderedDuplicateDnsValues()
+    {
+        var commonPath = Path.Combine(RepositoryRoot, "scripts", "DnsTransaction.Script.Common.ps1").Replace("'", "''", StringComparison.Ordinal);
+        var fixturePath = Path.Combine(RepositoryRoot, "tests", "Fixtures", "phase5-duplicate-backup.json").Replace("'", "''", StringComparison.Ordinal);
+        var command = $". '{commonPath}'; " +
+            $"$validated = Test-QuietShieldRehearsalBackup -BackupPath '{fixturePath}'; " +
+            "$ipv4 = @($validated.Backup.adapter.families | Where-Object { [string]$_.addressFamily -ceq 'IPv4' })[0]; " +
+            "$ipv6 = @($validated.Backup.adapter.families | Where-Object { [string]$_.addressFamily -ceq 'IPv6' })[0]; " +
+            "if (@($ipv4.serverAddresses).Count -ne 3) { exit 1 }; " +
+            "if ([string]$ipv4.serverAddresses[0] -cne [string]$ipv4.serverAddresses[2]) { exit 2 }; " +
+            "if (-not [bool]$ipv6.automatic -or @($ipv6.serverAddresses).Count -ne 2) { exit 3 }; " +
+            "if ([string]$ipv6.serverAddresses[0] -cne [string]$ipv6.serverAddresses[1]) { exit 4 }; exit 0";
+        var start = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-ExecutionPolicy");
+        start.ArgumentList.Add("Bypass");
+        start.ArgumentList.Add("-Command");
+        start.ArgumentList.Add(command);
+        using var process = System.Diagnostics.Process.Start(start);
+        Assert.IsNotNull(process);
+        Assert.IsTrue(process.WaitForExit(10_000), "PowerShell duplicate-backup validator regression test timed out.");
+        Assert.AreEqual(0, process.ExitCode, process.StandardError.ReadToEnd());
+    }
+
+    [TestMethod]
+    public void PowerShell51RawRcodeRecognitionRequiresExactNxdomainResponse()
+    {
+        var commonPath = Path.Combine(RepositoryRoot, "scripts", "DnsTransaction.Script.Common.ps1").Replace("'", "''", StringComparison.Ordinal);
+        var command = $". '{commonPath}'; " +
+            "$valid = [pscustomobject]@{ protocol='Udp'; queriedName='quietshield-blocked.test'; responseQuestionName='quietshield-blocked.test'; expectedTransactionId=4660; responseTransactionId=4660; isResponse=$true; responseCode=3; validationSucceeded=$true; passed=$true }; " +
+            "if (-not (Test-QuietShieldRawDnsProbeResult -Result $valid -Protocol 'Udp')) { exit 1 }; " +
+            "$invalid = $valid.PSObject.Copy(); $invalid.responseCode = 2; " +
+            "try { [void](Test-QuietShieldRawDnsProbeResult -Result $invalid -Protocol 'Udp'); exit 2 } catch { exit 0 }";
+        var start = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-ExecutionPolicy");
+        start.ArgumentList.Add("Bypass");
+        start.ArgumentList.Add("-Command");
+        start.ArgumentList.Add(command);
+        using var process = System.Diagnostics.Process.Start(start);
+        Assert.IsNotNull(process);
+        Assert.IsTrue(process.WaitForExit(10_000), "PowerShell raw-RCODE recognition regression test timed out.");
+        Assert.AreEqual(0, process.ExitCode, process.StandardError.ReadToEnd());
+    }
+
+    [TestMethod]
+    public void HostReadinessRequiresLoadedPolicyAndRawUdpTcpSelfTests()
+    {
+        var host = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.DnsHost", "Program.cs"));
+        foreach (var required in new[]
+        {
+            "PolicySnapshotLoaded", "policySnapshot.Loaded", "EnsureBlockedSelfTest(udpSelfTest)",
+            "EnsureBlockedSelfTest(tcpSelfTest)", "policySnapshotLoaded = policySnapshot.Loaded",
+            "udpBlockedRcode", "tcpBlockedRcode", "NormalizedBlockedTestDomain"
+        })
+        {
+            StringAssert.Contains(host, required);
+        }
+        Assert.IsLessThan(host.IndexOf("purpose = \"DnsRehearsalHostReady\"", StringComparison.Ordinal), host.IndexOf("EnsureBlockedSelfTest(tcpSelfTest)", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void RehearsalAttemptsAreAppendOnlyConcurrentSafeAndPreChangeFailureIsNotCompletion()
+    {
+        var invoke = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "Invoke-DnsActivationRehearsal.ps1"));
+        StringAssert.Contains(invoke, "Global\\QuietShieldDnsActivationRehearsal");
+        StringAssert.Contains(invoke, "ApprovedTemporaryActivation");
+        StringAssert.Contains(invoke, "attempt-records.jsonl");
+        StringAssert.Contains(invoke, "Add-Content -LiteralPath $script:attemptRecordsPath");
+        StringAssert.Contains(invoke, "FailedBeforeDnsChange");
+        StringAssert.Contains(invoke, "CompletedActivationRehearsal");
+        Assert.IsFalse(invoke.Contains("rehearsal-attempted.marker", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(invoke.Contains("Set-Content -LiteralPath $attemptRecordsPath", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void RehearsalDnsHostUsesExplicitOriginalUpstreamsAndNoSystemResolver()
+    {
+        var host = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.DnsHost", "Program.cs"));
+        StringAssert.Contains(host, "Original adapter DNS");
+        StringAssert.Contains(host, "ApprovedTemporaryPort53Rehearsal");
+        StringAssert.Contains(host, "IPAddress.Loopback");
+        Assert.IsFalse(host.Contains("System.Net.Dns", StringComparison.Ordinal));
+        Assert.IsFalse(host.Contains("GetHostAddresses", StringComparison.Ordinal));
     }
 
     [TestMethod]

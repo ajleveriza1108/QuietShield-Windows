@@ -4,6 +4,7 @@ param()
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'QuietShield.Script.Common.ps1')
+. (Join-Path $PSScriptRoot 'DnsTransaction.Script.Common.ps1')
 
 Assert-QuietShieldPowerShell51
 Assert-QuietShieldNonElevated
@@ -12,10 +13,15 @@ $logPath = Start-QuietShieldLog -Name 'validation'
 $root = Get-QuietShieldRepositoryRoot
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $resultPath = Join-Path $root ('logs\validation-' + $timestamp + '.json')
+$preStatePath = Join-Path $root ('logs\phase5-pre-state-' + $timestamp + '.json')
+$postStatePath = Join-Path $root ('logs\phase5-post-state-' + $timestamp + '.json')
 
 try {
     Assert-QuietShieldToolchain
     $before = Get-QuietShieldSafetySnapshot
+    $before | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $preStatePath -Encoding UTF8
+    $attemptRecordsPath = Join-Path $root 'artifacts\dns-rehearsal\attempt-records.jsonl'
+    $attemptRecordsHashBefore = if (Test-Path -LiteralPath $attemptRecordsPath -PathType Leaf) { (Get-FileHash -LiteralPath $attemptRecordsPath -Algorithm SHA256).Hash } else { '[absent]' }
     if ($before.QuietShieldServiceCount -ne 0) {
         throw 'A QuietShield Windows service was already registered before validation.'
     }
@@ -48,7 +54,8 @@ try {
         'Validate-QuietShield.bat',
         'Test-DnsTransactionPlan.bat',
         'Show-DnsTransactionState.bat',
-        'Emergency-Restore-Dns.bat'
+        'Emergency-Restore-Dns.bat',
+        'Run-DnsActivationRehearsal.bat'
     )
     foreach ($launcher in $launchers) {
         $launcherPath = Join-Path $root $launcher
@@ -77,6 +84,20 @@ try {
         '/p:Platform=x64',
         $restorePackagesProperty
     )
+
+    Write-Output 'Running the read-only Phase 5 adapter and port-53 preflight without binding any socket.'
+    $selectedAdapter = Get-QuietShieldSelectedPhysicalAdapter
+    $port53 = Test-QuietShieldPort53Availability
+    if (-not [bool]$port53.Available) {
+        throw 'Loopback port 53 is already in use; dry validation refuses the rehearsal preflight.'
+    }
+    $hostPath = Join-Path $root 'artifacts\bin\QuietShield.DnsHost\Release\net10.0-windows\QuietShield.DnsHost.exe'
+    $watchdogPath = Join-Path $root 'artifacts\bin\QuietShield.DnsWatchdog\Release\net10.0-windows\QuietShield.DnsWatchdog.exe'
+    foreach ($rehearsalExecutable in @($hostPath, $watchdogPath)) {
+        if (-not (Test-Path -LiteralPath $rehearsalExecutable -PathType Leaf)) {
+            throw ('A required Phase 5 Release executable was not found: ' + $rehearsalExecutable)
+        }
+    }
 
     $testResults = Join-Path $root ('artifacts\test-results\validation-' + $timestamp)
     [void](New-Item -ItemType Directory -Path $testResults -Force)
@@ -107,6 +128,19 @@ try {
         'TestCategory=Phase4Smoke'
     )
 
+    Write-Output 'Running Phase 5 independent-watchdog, rollback, transaction-recovery, and port-conflict simulations.'
+    Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
+        'test',
+        $solution,
+        '--configuration',
+        'Release',
+        '--no-build',
+        '--no-restore',
+        '-p:Platform=x64',
+        '--filter',
+        'TestCategory=Phase5Smoke'
+    )
+
     $testCount = 0
     $passedCount = 0
     $failedCount = 0
@@ -129,8 +163,8 @@ try {
     }
 
     $diagnosticPath = Join-Path $testResults 'phase4-live-diagnostic.json'
-    Write-Output ('Starting WPF Phase 4 DNS runtime-foundation smoke process: ' + $appPath)
-    $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @('--phase4-smoke', '--diagnostic-output', ('"' + $diagnosticPath + '"')) -WorkingDirectory (Split-Path -Parent $appPath) -PassThru
+    Write-Output ('Starting WPF Phase 5 DNS rehearsal-readiness smoke process: ' + $appPath)
+    $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @('--phase5-smoke', '--diagnostic-output', ('"' + $diagnosticPath + '"')) -WorkingDirectory (Split-Path -Parent $appPath) -PassThru
     $exited = $applicationProcess.WaitForExit(30000)
     if (-not $exited) {
         throw ("WPF smoke process did not exit within 30 seconds. Process ID {0} was not terminated automatically." -f $applicationProcess.Id)
@@ -174,6 +208,9 @@ try {
     Invoke-QuietShieldCommand -FilePath 'cmd.exe' -ArgumentList @('/d', '/c', $cleanLauncher, '-WhatIf')
 
     $after = Get-QuietShieldSafetySnapshot
+    $after | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $postStatePath -Encoding UTF8
+    $attemptRecordsHashAfter = if (Test-Path -LiteralPath $attemptRecordsPath -PathType Leaf) { (Get-FileHash -LiteralPath $attemptRecordsPath -Algorithm SHA256).Hash } else { '[absent]' }
+    if ($attemptRecordsHashBefore -cne $attemptRecordsHashAfter) { throw 'Dry validation changed the append-only rehearsal attempt records.' }
     if ($after.IsAdministrator) {
         throw 'Validation unexpectedly ran with Administrator elevation.'
     }
@@ -188,7 +225,7 @@ try {
     }
 
     $validation = [ordered]@{
-        schemaVersion = 4
+        schemaVersion = 5
         timestamp = (Get-Date).ToString('o')
         status = 'Passed'
         powershellVersion = $PSVersionTable.PSVersion.ToString()
@@ -212,6 +249,32 @@ try {
             emergencyRestoreWhatIfIdentityRefusal = 'Passed'
             privacySafeDiagnosticExport = 'Passed'
         }
+        phase5DryValidation = [ordered]@{
+            adapterSelection = 'ExactlyOneSupportedPhysicalAdapter'
+            adapterIdentity = [ordered]@{
+                interfaceGuid = ([Guid]$selectedAdapter.Adapter.InterfaceGuid).ToString('D')
+                interfaceIndex = [int]$selectedAdapter.Adapter.InterfaceIndex
+                kind = [string]$selectedAdapter.Kind
+            }
+            port53Preflight = 'AvailableWithoutBinding'
+            dnsHostReleaseOutput = $hostPath
+            watchdogReleaseOutput = $watchdogPath
+            watchdogSimulation = 'Passed'
+            rawUdpNxdomainSmoke = 'Passed'
+            rawTcpNxdomainSmoke = 'Passed'
+            powershell51RawRcodeRecognition = 'Passed'
+            trailingDotNormalization = 'Passed'
+            allowedExampleForwarding = 'Passed'
+            hostPolicyReadiness = 'Passed'
+            heartbeatLossSimulation = 'Passed'
+            parentLossSimulation = 'Passed'
+            deadlineRollbackSimulation = 'Passed'
+            transactionRecoverySimulation = 'Passed'
+            dnsChanged = $false
+            attemptRecordsUnchanged = $true
+            preStateSnapshot = $preStatePath
+            postStateSnapshot = $postStatePath
+        }
         detected = [ordered]@{
             applicationCount = [int]$liveDiagnostic.applicationTotal
             primaryNetworkType = [string]$liveDiagnostic.primaryNetworkType
@@ -229,6 +292,7 @@ try {
             status = 'Passed'
             exitCode = $applicationProcess.ExitCode
             executable = $appPath
+            phase = 'Phase5Readiness'
         }
         safety = [ordered]@{
             administrator = $after.IsAdministrator

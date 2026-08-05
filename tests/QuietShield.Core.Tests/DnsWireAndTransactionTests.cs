@@ -9,6 +9,7 @@ public sealed class DnsWireAndTransactionTests
     private static readonly DateTimeOffset Now = new(2026, 8, 6, 0, 0, 0, TimeSpan.Zero);
     private static readonly DnsAdapterIdentity Adapter = new(Guid.Parse("11111111-2222-3333-4444-555555555555"), 17);
     private static readonly string[] OriginalServers = { "1.1.1.1", "2606:4700:4700::1111" };
+    private static readonly string[] DuplicateServers = { "1.1.1.1", "8.8.8.8", "1.1.1.1" };
     private static readonly string[] SingleServer = { "1.1.1.1" };
     private static readonly DnsAdapterOriginalState[] OriginalAdapterStates = { new(Adapter, false, OriginalServers) };
     private static readonly DnsAdapterOriginalState[] SingleAdapterState = { new(Adapter, false, SingleServer) };
@@ -74,6 +75,20 @@ public sealed class DnsWireAndTransactionTests
         Assert.IsTrue(validation.Succeeded);
         Assert.AreEqual(backup.BackupId, validation.Document!.BackupId);
         CollectionAssert.AreEqual(OriginalServers, validation.Document.Adapters[0].ServerAddresses.ToArray());
+    }
+
+    [TestMethod]
+    public void GeneralDnsBackupPreservesDuplicateValuesAndOrder()
+    {
+        var backup = DnsBackupSerializer.Create(
+            new[] { new DnsAdapterOriginalState(Adapter, true, DuplicateServers) },
+            Now,
+            Guid.Parse("CCCCCCCC-DDDD-EEEE-FFFF-AAAAAAAAAAAA"));
+
+        var validation = DnsBackupSerializer.DeserializeAndValidate(DnsBackupSerializer.Serialize(backup));
+
+        Assert.IsTrue(validation.Succeeded);
+        CollectionAssert.AreEqual(DuplicateServers, validation.Document!.Adapters[0].ServerAddresses.ToArray());
     }
 
     [TestMethod]

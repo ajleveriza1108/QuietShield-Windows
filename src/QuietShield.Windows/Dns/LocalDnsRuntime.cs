@@ -15,6 +15,12 @@ public enum LocalDnsRuntimeState
     Faulted
 }
 
+public enum LocalDnsBindingMode
+{
+    DynamicUnprivilegedDiagnostic,
+    ApprovedTemporaryPort53Rehearsal
+}
+
 public sealed record LocalDnsRuntimeOptions(
     IPAddress ListenAddress,
     int ListenPort,
@@ -24,6 +30,8 @@ public sealed record LocalDnsRuntimeOptions(
     DnsIndeterminatePolicy IndeterminatePolicy,
     bool DiagnosticDomainLoggingEnabled)
 {
+    public LocalDnsBindingMode BindingMode { get; init; } = LocalDnsBindingMode.DynamicUnprivilegedDiagnostic;
+
     public static LocalDnsRuntimeOptions SafeDiagnosticDefaults { get; } = new(
         IPAddress.Loopback,
         0,
@@ -98,7 +106,9 @@ public sealed class LocalDnsRuntime : ILocalDnsRuntime
                 _udpLoop = RunUdpLoopAsync(_shutdown.Token);
                 _tcpLoop = RunTcpLoopAsync(_shutdown.Token);
                 _state = LocalDnsRuntimeState.Running;
-                _status = "DNS runtime is listening on loopback UDP and TCP at a dynamic unprivileged port.";
+                _status = _options.BindingMode == LocalDnsBindingMode.ApprovedTemporaryPort53Rehearsal
+                    ? "DNS runtime is listening temporarily on loopback UDP and TCP port 53 for an approved rehearsal."
+                    : "DNS runtime is listening on loopback UDP and TCP at a dynamic unprivileged port.";
                 WriteEvent("Started", _status, null);
                 return Task.FromResult(port);
             }
@@ -299,7 +309,10 @@ public sealed class LocalDnsRuntime : ILocalDnsRuntime
     {
         ArgumentNullException.ThrowIfNull(options);
         if (!IPAddress.IsLoopback(options.ListenAddress)) throw new ArgumentException("Phase 4 DNS runtime may bind only to loopback.", nameof(options));
-        if (options.ListenPort is > 0 and <= 1023 || options.ListenPort > 65535) throw new ArgumentException("Phase 4 DNS runtime requires a dynamic or unprivileged port and never permits port 53.", nameof(options));
+        if (options.BindingMode == LocalDnsBindingMode.DynamicUnprivilegedDiagnostic && (options.ListenPort is > 0 and <= 1023 || options.ListenPort > 65535))
+            throw new ArgumentException("Diagnostic DNS runtime requires a dynamic or unprivileged port and never permits port 53.", nameof(options));
+        if (options.BindingMode == LocalDnsBindingMode.ApprovedTemporaryPort53Rehearsal && options.ListenPort != 53)
+            throw new ArgumentException("The approved temporary rehearsal binding mode permits only loopback port 53.", nameof(options));
         if (options.MaximumQuerySize is < DnsWireProtocol.HeaderLength or > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(options));
         if (options.MaximumConcurrentRequests is < 1 or > 1024) throw new ArgumentOutOfRangeException(nameof(options));
         if (options.QueryTimeout <= TimeSpan.Zero || options.QueryTimeout > TimeSpan.FromMinutes(1)) throw new ArgumentOutOfRangeException(nameof(options));

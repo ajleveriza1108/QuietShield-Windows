@@ -151,8 +151,6 @@ public static class DnsBackupSerializer
             if (adapter.ServerAddresses is null) return Failed("The DNS backup contains a missing server-address collection.");
             if (adapter.ServerAddresses.Any(static address => !IPAddress.TryParse(address, out _)))
                 return Failed("The DNS backup contains a non-IP DNS server value.");
-            if (adapter.ServerAddresses.Distinct(StringComparer.OrdinalIgnoreCase).Count() != adapter.ServerAddresses.Count)
-                return Failed("The DNS backup contains duplicate DNS server values.");
             if (!adapter.Automatic && adapter.ServerAddresses.Count == 0)
                 return Failed("A static DNS backup entry must contain its original DNS server values.");
         }

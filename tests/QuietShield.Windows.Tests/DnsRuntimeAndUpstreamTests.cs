@@ -12,6 +12,68 @@ namespace QuietShield.Windows.Tests;
 public sealed class DnsRuntimeAndUpstreamTests
 {
     [TestMethod]
+    [TestCategory("Phase5Smoke")]
+    public async Task EmbeddedBlockedTestDomainReturnsRawNxdomainOverUdp()
+    {
+        await using var runtime = CreateRuntime(new DnsRehearsalPolicyEvaluator(), new EchoUpstreamResolver());
+        var port = await runtime.StartAsync(CancellationToken.None);
+
+        var result = await DnsRawProbeClient.ProbeAsync(
+            new IPEndPoint(IPAddress.Loopback, port),
+            "quietshield-blocked.test",
+            DnsRawProbeProtocol.Udp,
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        Assert.IsTrue(result.Validation.Succeeded);
+        Assert.AreEqual(result.Validation.ExpectedTransactionId, result.Validation.ResponseTransactionId);
+        Assert.IsTrue(result.Validation.IsResponse);
+        Assert.AreEqual(DnsResponseCode.NameError, result.Validation.ResponseCode);
+        Assert.AreEqual("quietshield-blocked.test", result.Validation.NormalizedQuestionName);
+    }
+
+    [TestMethod]
+    [TestCategory("Phase5Smoke")]
+    public async Task EmbeddedBlockedTestDomainReturnsRawNxdomainOverTcp()
+    {
+        await using var runtime = CreateRuntime(new DnsRehearsalPolicyEvaluator(), new EchoUpstreamResolver());
+        var port = await runtime.StartAsync(CancellationToken.None);
+
+        var result = await DnsRawProbeClient.ProbeAsync(
+            new IPEndPoint(IPAddress.Loopback, port),
+            "quietshield-blocked.test.",
+            DnsRawProbeProtocol.Tcp,
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        Assert.IsTrue(result.Validation.Succeeded);
+        Assert.AreEqual(DnsResponseCode.NameError, result.Validation.ResponseCode);
+        Assert.AreEqual("quietshield-blocked.test", result.NormalizedQueryName);
+        Assert.AreEqual("quietshield-blocked.test", result.Validation.NormalizedQuestionName);
+    }
+
+    [TestMethod]
+    [TestCategory("Phase5Smoke")]
+    public async Task AllowedExampleDomainStillForwardsAndReturnsNoError()
+    {
+        var upstream = new EchoUpstreamResolver();
+        await using var runtime = CreateRuntime(new DnsRehearsalPolicyEvaluator(), upstream);
+        var port = await runtime.StartAsync(CancellationToken.None);
+
+        var result = await DnsRawProbeClient.ProbeAsync(
+            new IPEndPoint(IPAddress.Loopback, port),
+            "example.com",
+            DnsRawProbeProtocol.Udp,
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        Assert.IsTrue(result.Validation.Succeeded);
+        Assert.AreEqual(DnsResponseCode.NoError, result.Validation.ResponseCode);
+        Assert.AreEqual(1, upstream.CallCount);
+        Assert.AreEqual("example.com", upstream.LastQuestion!.NormalizedDomain);
+    }
+
+    [TestMethod]
     [TestCategory("Phase4Smoke")]
     public async Task UdpBlockedQueryReturnsNxdomainOnDynamicLoopbackPort()
     {

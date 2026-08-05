@@ -24,6 +24,15 @@ public sealed record DnsWireQuestion(
 
 public sealed record DnsWireParseResult(bool Succeeded, DnsWireQuestion? Question, string Status);
 
+public sealed record DnsWireResponseValidation(
+    bool Succeeded,
+    ushort ExpectedTransactionId,
+    ushort ResponseTransactionId,
+    bool IsResponse,
+    DnsResponseCode ResponseCode,
+    string? NormalizedQuestionName,
+    string Status);
+
 public static class DnsWireProtocol
 {
     public const int HeaderLength = 12;
@@ -121,6 +130,54 @@ public static class DnsWireProtocol
 
     public static bool IsResponse(ReadOnlySpan<byte> packet) =>
         packet.Length >= 4 && (BinaryPrimitives.ReadUInt16BigEndian(packet[2..4]) & 0x8000) != 0;
+
+    public static DnsWireResponseValidation ValidateResponse(ReadOnlySpan<byte> packet, DnsWireQuestion expectedQuestion)
+    {
+        ArgumentNullException.ThrowIfNull(expectedQuestion);
+        var responseId = GetTransactionId(packet);
+        var isResponse = IsResponse(packet);
+        var responseCode = GetResponseCode(packet);
+        if (packet.Length < HeaderLength)
+            return Invalid("The DNS response is shorter than its header.", null);
+        if (responseId != expectedQuestion.TransactionId)
+            return Invalid("The DNS response transaction ID does not match the query.", null);
+        if (!isResponse)
+            return Invalid("The DNS packet does not have the response flag set.", null);
+        if (BinaryPrimitives.ReadUInt16BigEndian(packet[4..6]) != 1)
+            return Invalid("The DNS response must echo exactly one question.", null);
+
+        var offset = HeaderLength;
+        if (!TryReadName(packet, ref offset, out var domain, out var error))
+            return Invalid(error ?? "The DNS response question name is invalid.", null);
+        if (offset + 4 > packet.Length)
+            return Invalid("The DNS response question is truncated.", null);
+        var queryType = BinaryPrimitives.ReadUInt16BigEndian(packet[offset..(offset + 2)]);
+        var queryClass = BinaryPrimitives.ReadUInt16BigEndian(packet[(offset + 2)..(offset + 4)]);
+        var normalized = DomainNormalizer.NormalizeDomain(domain);
+        if (!normalized.IsValid || normalized.NormalizedValue is null)
+            return Invalid(normalized.Error ?? "The DNS response question name is invalid.", null);
+        if (!normalized.NormalizedValue.Equals(expectedQuestion.NormalizedDomain, StringComparison.Ordinal) ||
+            queryType != expectedQuestion.QueryType || queryClass != expectedQuestion.QueryClass)
+            return Invalid("The DNS response question does not exactly match the query.", normalized.NormalizedValue);
+
+        return new DnsWireResponseValidation(
+            true,
+            expectedQuestion.TransactionId,
+            responseId,
+            true,
+            responseCode,
+            normalized.NormalizedValue,
+            "The DNS response transaction and echoed question are valid.");
+
+        DnsWireResponseValidation Invalid(string status, string? normalizedName) => new(
+            false,
+            expectedQuestion.TransactionId,
+            responseId,
+            isResponse,
+            responseCode,
+            normalizedName,
+            status);
+    }
 
     private static bool TryReadName(ReadOnlySpan<byte> packet, ref int offset, out string domain, out string? error)
     {
