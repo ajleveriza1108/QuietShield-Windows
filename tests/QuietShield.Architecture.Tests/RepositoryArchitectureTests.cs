@@ -152,10 +152,44 @@ public sealed class RepositoryArchitectureTests
             var content = File.ReadAllText(script);
             foreach (var fragment in forbiddenFragments)
             {
+                if (Path.GetFileName(script).Equals("Restore-OriginalDns.ps1", StringComparison.OrdinalIgnoreCase) &&
+                    fragment.Equals("Set-DnsClient", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
                 Assert.IsFalse(
                     content.Contains(fragment, StringComparison.OrdinalIgnoreCase),
                     $"{Path.GetRelativePath(RepositoryRoot, script)} contains forbidden command fragment '{fragment}'.");
             }
+        }
+    }
+
+    [TestMethod]
+    public void EmergencyDnsRestoreIsNarrowValidatedManualAndNeverSelfElevates()
+    {
+        var restore = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "Restore-OriginalDns.ps1"));
+        foreach (var required in new[]
+        {
+            "SupportsShouldProcess = $true", "Test-QuietShieldDnsBackup", "Test-QuietShieldDnsAdapterIdentities",
+            "ExplicitUserApproval", "Test-QuietShieldAdministrator", "Set-DnsClientServerAddress", "ResetServerAddresses",
+            "ServerAddresses $originalServers", "never self-elevates"
+        })
+        {
+            StringAssert.Contains(restore, required);
+        }
+        Assert.IsFalse(restore.Contains("-Verb RunAs", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(restore.Contains("Start-Process", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(restore.Contains("New-NetFirewall", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(restore.Contains("Set-NetIPInterface", StringComparison.OrdinalIgnoreCase));
+
+        var launcher = File.ReadAllText(Path.Combine(RepositoryRoot, "Emergency-Restore-Dns.bat"));
+        StringAssert.Contains(launcher, "Restore-OriginalDns.ps1");
+        StringAssert.Contains(launcher, "Manual emergency entry point only");
+        foreach (var automaticLauncher in new[] { "Build-QuietShield.bat", "Test-QuietShield.bat", "Run-QuietShield.bat", "Validate-QuietShield.bat" })
+        {
+            var source = File.ReadAllText(Path.Combine(RepositoryRoot, automaticLauncher));
+            Assert.IsFalse(source.Contains("Emergency-Restore-Dns", StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(source.Contains("Restore-OriginalDns", StringComparison.OrdinalIgnoreCase));
         }
     }
 
@@ -229,6 +263,51 @@ public sealed class RepositoryArchitectureTests
         Assert.IsFalse(source.Contains("IPAddress.Any", StringComparison.Ordinal));
         Assert.IsFalse(source.Contains("IPAddress.IPv6Any", StringComparison.Ordinal));
         Assert.IsFalse(source.Contains("Loopback, 53", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void Phase4RuntimeIsLoopbackBoundedAndNotStartedByApplicationComposition()
+    {
+        var runtime = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Windows", "Dns", "LocalDnsRuntime.cs"));
+        StringAssert.Contains(runtime, "IPAddress.IsLoopback");
+        StringAssert.Contains(runtime, "ListenPort is > 0 and <= 1023");
+        StringAssert.Contains(runtime, "MaximumConcurrentRequests");
+        StringAssert.Contains(runtime, "QueryTimeout");
+        Assert.IsFalse(runtime.Contains("System.Net.Dns", StringComparison.Ordinal));
+        Assert.IsFalse(runtime.Contains("GetHostAddresses", StringComparison.Ordinal));
+
+        var composition = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "App.xaml.cs"));
+        foreach (var forbidden in new[]
+        {
+            "AddSingleton<ILocalDnsRuntime,", "AddHostedService<DnsRuntimeServiceCoordinator", "SafeDnsUpstreamResolver",
+            "SocketDnsUpstreamTransport", "IDnsConfigurationMutator", "DnsTransactionCoordinator"
+        })
+        {
+            Assert.IsFalse(composition.Contains(forbidden, StringComparison.Ordinal), $"Application composition starts or registers forbidden Phase 4 runtime component '{forbidden}'.");
+        }
+        StringAssert.Contains(composition, "ILocalDnsRuntimeDiagnostic, LocalDnsRuntimeDiagnostic");
+    }
+
+    [TestMethod]
+    public void NoProductionDnsMutatorImplementationOrActivationControlExists()
+    {
+        foreach (var project in new[] { "QuietShield.App", "QuietShield.Windows", "QuietShield.Service" })
+        {
+            foreach (var file in Directory.EnumerateFiles(Path.Combine(RepositoryRoot, "src", project), "*.cs", SearchOption.AllDirectories))
+            {
+                var source = File.ReadAllText(file);
+                Assert.IsFalse(source.Contains(": IDnsConfigurationMutator", StringComparison.Ordinal), $"A production DNS mutator implementation exists in {Path.GetRelativePath(RepositoryRoot, file)}.");
+                Assert.IsFalse(source.Contains("IWindowsDnsChangeApplier", StringComparison.Ordinal), $"A modifying Windows DNS applier exists in {Path.GetRelativePath(RepositoryRoot, file)}.");
+            }
+        }
+
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "MainWindow.xaml"));
+        Assert.IsFalse(xaml.Contains("Content=\"Activate\"", StringComparison.OrdinalIgnoreCase));
+        StringAssert.Contains(xaml, "Preview activation plan");
+
+        var serviceProgram = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Service", "Program.cs"));
+        Assert.IsFalse(serviceProgram.Contains("DnsRuntimeServiceCoordinator", StringComparison.Ordinal));
+        Assert.IsFalse(serviceProgram.Contains("UseWindowsService", StringComparison.Ordinal));
     }
 
     private static string FindRepositoryRoot()

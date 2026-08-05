@@ -45,7 +45,10 @@ try {
         'Test-QuietShield.bat',
         'Run-QuietShield.bat',
         'Clean-QuietShield.bat',
-        'Validate-QuietShield.bat'
+        'Validate-QuietShield.bat',
+        'Test-DnsTransactionPlan.bat',
+        'Show-DnsTransactionState.bat',
+        'Emergency-Restore-Dns.bat'
     )
     foreach ($launcher in $launchers) {
         $launcherPath = Join-Path $root $launcher
@@ -91,7 +94,7 @@ try {
         'trx'
     )
 
-    Write-Output 'Running Phase 3 DNS simulation and protection-list activation/rollback smoke tests.'
+    Write-Output 'Running Phase 4 UDP, TCP, blocked, allowed-forwarding, and transaction-plan smoke tests.'
     Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
         'test',
         $solution,
@@ -101,7 +104,7 @@ try {
         '--no-restore',
         '-p:Platform=x64',
         '--filter',
-        'TestCategory=Phase3Smoke'
+        'TestCategory=Phase4Smoke'
     )
 
     $testCount = 0
@@ -125,9 +128,9 @@ try {
         throw ("WPF application executable was not found: {0}" -f $appPath)
     }
 
-    $diagnosticPath = Join-Path $testResults 'phase3-live-diagnostic.json'
-    Write-Output ('Starting WPF Phase 3 DNS simulation smoke process: ' + $appPath)
-    $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @('--phase3-smoke', '--diagnostic-output', ('"' + $diagnosticPath + '"')) -WorkingDirectory (Split-Path -Parent $appPath) -PassThru
+    $diagnosticPath = Join-Path $testResults 'phase4-live-diagnostic.json'
+    Write-Output ('Starting WPF Phase 4 DNS runtime-foundation smoke process: ' + $appPath)
+    $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @('--phase4-smoke', '--diagnostic-output', ('"' + $diagnosticPath + '"')) -WorkingDirectory (Split-Path -Parent $appPath) -PassThru
     $exited = $applicationProcess.WaitForExit(30000)
     if (-not $exited) {
         throw ("WPF smoke process did not exit within 30 seconds. Process ID {0} was not terminated automatically." -f $applicationProcess.Id)
@@ -136,7 +139,7 @@ try {
         throw ("WPF smoke process returned exit code {0}." -f $applicationProcess.ExitCode)
     }
     if (-not (Test-Path -LiteralPath $diagnosticPath)) {
-        throw 'The WPF Phase 3 smoke did not create its requested privacy-safe diagnostic summary.'
+        throw 'The WPF Phase 4 smoke did not create its requested privacy-safe diagnostic summary.'
     }
     $liveDiagnostic = Get-Content -LiteralPath $diagnosticPath -Raw | ConvertFrom-Json
     if ([int]$liveDiagnostic.applicationTotal -le 0) {
@@ -144,6 +147,26 @@ try {
     }
     if ([int]$liveDiagnostic.quietShieldOwnedFirewallRuleCount -ne 0) {
         throw 'QuietShield-owned firewall rules were unexpectedly detected.'
+    }
+
+    $backupFixture = Join-Path $root 'tests\Fixtures\phase4-valid-backup.json'
+    Write-Output 'Running the transaction-plan launcher in read-only WhatIf mode with a valid non-production fixture.'
+    $transactionPlanLauncher = Join-Path $root 'Test-DnsTransactionPlan.bat'
+    Invoke-QuietShieldCommand -FilePath $transactionPlanLauncher -ArgumentList @('-WhatIf', '-BackupPath', $backupFixture)
+
+    Write-Output 'Validating that emergency restore -WhatIf refuses a valid backup whose adapter identity does not match this computer.'
+    $emergencyLauncher = Join-Path $root 'Emergency-Restore-Dns.bat'
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $emergencyLauncher -WhatIf -BackupPath $backupFixture 2>&1 | Write-Output
+        $emergencyExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($emergencyExitCode -eq 0) {
+        throw 'Emergency DNS restore unexpectedly accepted a non-matching adapter identity.'
     }
 
     Write-Output 'Running the Clean launcher in WhatIf mode.'
@@ -165,7 +188,7 @@ try {
     }
 
     $validation = [ordered]@{
-        schemaVersion = 3
+        schemaVersion = 4
         timestamp = (Get-Date).ToString('o')
         status = 'Passed'
         powershellVersion = $PSVersionTable.PSVersion.ToString()
@@ -180,9 +203,13 @@ try {
             passed = $passedCount
             failed = $failedCount
         }
-        phase3SmokeTests = [ordered]@{
-            dnsSimulation = 'Passed'
-            protectionListActivationRollback = 'Passed'
+        phase4SmokeTests = [ordered]@{
+            localUdpDns = 'Passed'
+            localTcpDns = 'Passed'
+            blockedNxdomain = 'Passed'
+            allowedForwarding = 'Passed'
+            transactionPlanDryRun = 'Passed'
+            emergencyRestoreWhatIfIdentityRefusal = 'Passed'
             privacySafeDiagnosticExport = 'Passed'
         }
         detected = [ordered]@{

@@ -286,7 +286,7 @@
                         <Border Margin="0,0,0,16" Padding="16" Background="{StaticResource AccentSoftBrush}" CornerRadius="9">
                             <StackPanel>
                                 <TextBlock FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Text="QuietShield DNS Protection: Simulation Only" />
-                                <TextBlock Margin="0,7,0,0" FontWeight="SemiBold" Text="{Binding DnsNoWindowsChangeStatement}" />
+                                <TextBlock Margin="0,7,0,0" FontWeight="SemiBold" Text="{Binding DnsEnforcementBanner}" />
                             </StackPanel>
                         </Border>
 
@@ -313,6 +313,38 @@
                                     <StackPanel Margin="0,0,20,12"><TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="MATCHED RULE" /><TextBlock Margin="0,5,0,0" Text="{Binding DnsMatchedRule}" TextWrapping="Wrap" /></StackPanel>
                                     <StackPanel Margin="0,0,20,12"><TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="REASON" /><TextBlock Margin="0,5,0,0" Text="{Binding DnsReason}" TextWrapping="Wrap" /></StackPanel>
                                 </UniformGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Runtime and transaction readiness" />
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="RUNTIME STATUS" />
+                                        <TextBlock Margin="0,4,0,10" Text="{Binding DnsRuntimeStatus}" TextWrapping="Wrap" />
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="SIMULATION STATUS" />
+                                        <TextBlock Margin="0,4,0,10" Text="{Binding DnsSimulationStatus}" TextWrapping="Wrap" />
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="UPSTREAM HEALTH" />
+                                        <TextBlock Margin="0,4,0,10" Text="{Binding DnsUpstreamHealthStatus}" TextWrapping="Wrap" />
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="TRANSACTION READINESS" />
+                                        <TextBlock Margin="0,4,0,10" Text="{Binding DnsTransactionReadiness}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="ORIGINAL DNS BACKUP" />
+                                        <TextBlock Margin="0,4,0,10" Text="{Binding OriginalDnsBackupStatus}" TextWrapping="Wrap" />
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="LAST-KNOWN-GOOD DNS" />
+                                        <TextBlock Margin="0,4,0,10" Text="{Binding DnsConfigurationLastKnownGoodStatus}" TextWrapping="Wrap" />
+                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="EMERGENCY RECOVERY" />
+                                        <TextBlock Margin="0,4,0,12" Text="{Binding EmergencyRecoveryStatus}" TextWrapping="Wrap" />
+                                        <WrapPanel>
+                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding TestLocalDnsRuntimeCommand}" Content="Test local resolver" />
+                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding PreviewDnsActivationPlanCommand}" Content="Preview activation plan" />
+                                        </WrapPanel>
+                                        <TextBlock Margin="0,4,0,0" Foreground="{StaticResource WarningBrush}" Text="No Activate control is available in this phase." TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
                             </StackPanel>
                         </Border>
 

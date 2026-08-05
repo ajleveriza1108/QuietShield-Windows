@@ -8,6 +8,7 @@ using QuietShield.App.ViewModels;
 using QuietShield.Core.Dns;
 using QuietShield.Licensing;
 using QuietShield.Windows.Diagnostics;
+using QuietShield.Windows.Dns;
 using QuietShield.Windows.Discovery;
 using QuietShield.Windows.Discovery.Applications;
 using QuietShield.Windows.Integration;
@@ -55,6 +56,9 @@ public partial class App : Application
         builder.Services.AddSingleton<ProtectionListActivator>();
         builder.Services.AddSingleton<ICustomDomainListService, InMemoryCustomDomainListService>();
         builder.Services.AddSingleton<IDnsDecisionCache>(services => new InMemoryDnsDecisionCache(services.GetRequiredService<IDnsClock>(), 512));
+        builder.Services.AddSingleton<IDnsRuntimePolicyConfiguration, FoundationDnsRuntimePolicyConfiguration>();
+        builder.Services.AddSingleton<IDnsRuntimePolicyEvaluator, FoundationDnsRuntimePolicyEvaluator>();
+        builder.Services.AddSingleton<ILocalDnsRuntimeDiagnostic, LocalDnsRuntimeDiagnostic>();
         builder.Services.AddSingleton<ILicenseService, FoundationLicenseService>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
@@ -77,7 +81,8 @@ public partial class App : Application
 
         if (e.Args.Contains("--foundation-smoke", StringComparer.OrdinalIgnoreCase) ||
             e.Args.Contains("--phase2-smoke", StringComparer.OrdinalIgnoreCase) ||
-            e.Args.Contains("--phase3-smoke", StringComparer.OrdinalIgnoreCase))
+            e.Args.Contains("--phase3-smoke", StringComparer.OrdinalIgnoreCase) ||
+            e.Args.Contains("--phase4-smoke", StringComparer.OrdinalIgnoreCase))
         {
             var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             timer.Tick += (_, _) =>

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "productMarker": "QuietShield",
+  "purpose": "OriginalDnsBackup",
+  "backupId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "createdAtUtc": "2026-08-06T00:00:00.0000000+00:00",
+  "adapters": [
+    {
+      "identity": {
+        "interfaceGuid": "11111111-2222-3333-4444-555555555555",
+        "interfaceIndex": 17
+      },
+      "automatic": false,
+      "serverAddresses": [
+        "1.1.1.1",
+        "2606:4700:4700::1111"
+      ]
+    }
+  ],
+  "payloadSha256": "5EA9E8286E1D5687C5305B6FABA0B0CDB6CC479068C27E25F94D1F5A8175A566"
+}
