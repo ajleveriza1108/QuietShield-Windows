@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Microsoft.Extensions.Logging;
+using QuietShield.Core.ConnectionLock;
 using QuietShield.Core.Dns;
 using QuietShield.Core.Protection;
 using QuietShield.Core.Simulation;
@@ -31,6 +32,10 @@ public sealed class ApplicationListItem
     public string? Publisher => Application.Publisher;
     public string? Version => Application.Version;
     public InstalledApplicationType ApplicationType => Application.ApplicationType;
+    public string ApplicationTypeLabel => Application.IsWindowsSystemComponent ? "Windows system component" : Application.ApplicationType.ToString();
+    public string PathValue => Application.MainExecutablePath ?? Application.PackageFamilyName ?? Application.InstallLocation ?? "No exact executable or package target was discovered";
+    public string PathStatus => Application.PackageFamilyName is not null ? "Package managed" : Application.MainExecutablePath is null ? "Ambiguous or unsupported" : Application.ExecutableExists ? "Present" : "Missing or moved";
+    public string PolicyLabel => Application.IsWindowsSystemComponent ? "Safety classification / profile default" : "Profile default / simulated program override";
     public BitmapSource? IconImage => _icon.Value;
     public string? IconSourcePath => Application.Icon?.SourcePath;
 }
@@ -92,6 +97,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         IDnsDecisionCache dnsDecisionCache,
         ILocalDnsRuntimeDiagnostic dnsRuntimeDiagnostic,
         IDnsRehearsalReadinessDiscovery dnsRehearsalReadinessDiscovery,
+        IProfileSelectionStore profileSelectionStore,
         ILogger<MainViewModel> logger)
     {
         _discovery = discovery;
@@ -106,6 +112,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _dnsRuntimeDiagnostic = dnsRuntimeDiagnostic;
         _dnsRehearsalReadinessDiscovery = dnsRehearsalReadinessDiscovery;
         _logger = logger;
+        InitializeProgramConnectionLock(profileSelectionStore);
         NavigationItems = new ObservableCollection<NavigationItem>
         {
             new("Dashboard", "Foundation status and current read-only discovery.", "\uE80F", "READ-ONLY FOUNDATION", true),
@@ -160,12 +167,14 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private static readonly string[] PageVisibilityProperties =
     {
-        nameof(IsDashboard), nameof(IsProgramConnectionLock), nameof(IsCompatibilityGuard), nameof(IsMeteredDataWatch),
+        nameof(IsDashboard), nameof(IsProgramConnectionLock), nameof(IsProtectionProfiles), nameof(IsSchedules), nameof(IsCompatibilityGuard), nameof(IsMeteredDataWatch),
         nameof(IsAggressiveProgramWatch), nameof(IsDnsProtection), nameof(IsDnsLists), nameof(IsActivity), nameof(IsLicensing), nameof(IsSettings), nameof(IsGenericPage)
     };
 
     public bool IsDashboard => SelectedPage.IsDashboard;
     public bool IsProgramConnectionLock => SelectedPage.Title == "Program Connection Lock";
+    public bool IsProtectionProfiles => SelectedPage.Title == "Protection Profiles";
+    public bool IsSchedules => SelectedPage.Title == "Schedules";
     public bool IsCompatibilityGuard => SelectedPage.Title == "Compatibility Guard";
     public bool IsMeteredDataWatch => SelectedPage.Title == "Metered and Cellular Data Watch";
     public bool IsAggressiveProgramWatch => SelectedPage.Title == "Aggressive Program Watch";
@@ -174,8 +183,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsActivity => SelectedPage.Title == "Activity and Statistics";
     public bool IsLicensing => SelectedPage.Title == "Licensing";
     public bool IsSettings => SelectedPage.Title == "Settings";
-    public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings);
-    public string VersionText { get; } = "Version 0.6.0 - Responsive GUI Hardening";
+    public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsProtectionProfiles || IsSchedules || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings);
+    public string VersionText { get; } = "Version 0.7.0 - Program Connection Lock Foundation";
     public string FoundationMode { get; } = "Foundation Mode";
     public string ProtectionState { get; } = "Protection Not Activated";
     public string ActiveProfile { get; } = "Simulation only";
@@ -323,19 +332,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void UpdateSimulation()
     {
-        if (SelectedApplication is null)
-        {
-            SimulationDecision = "Select an application to simulate a policy.";
-            SimulationReason = SimulationBanner;
-            return;
-        }
-
-        var rule = new ProgramRule(SelectedApplication.Id, SelectedApplication.DisplayName, SelectedPolicy);
-        var profile = new ProtectionProfile("local-simulation", $"{SelectedProfileMode} simulation", SelectedProfileMode, new[] { rule }, Array.Empty<CompatibilityExclusion>(), NotificationPriority.Normal, false);
-        var result = PolicySimulator.Simulate(new PolicySimulationInput(
-            SelectedApplication.Id, SelectedConnectionType, profile, rule, null, DateTimeOffset.Now, null, null, false, false, null, false, false));
-        SimulationDecision = $"{result.Decision} — {result.ResponsibleRule}";
-        SimulationReason = $"{result.Reason} {result.Warning}".Trim();
+        UpdateProgramConnectionLockSimulation();
     }
 
     private async void OnRefreshRequested(object? sender, EventArgs args) => await RefreshAsync(false).ConfigureAwait(true);

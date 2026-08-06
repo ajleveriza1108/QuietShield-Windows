@@ -47,6 +47,7 @@ public sealed class ProtectionProfileTests
     [DataRow(ProgramConnectionPolicy.WiFiOnly)]
     [DataRow(ProgramConnectionPolicy.EthernetOnly)]
     [DataRow(ProgramConnectionPolicy.CellularOnly)]
+    [DataRow(ProgramConnectionPolicy.MeteredOnly)]
     [DataRow(ProgramConnectionPolicy.UnmeteredOnly)]
     [DataRow(ProgramConnectionPolicy.AllowedOnAll)]
     public void EveryDefinedProgramConnectionPolicyIsValid(ProgramConnectionPolicy policy)

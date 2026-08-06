@@ -75,6 +75,8 @@ public partial class App : Application
             builder.Services.AddSingleton<IWindowPlacementStore>(_ => new JsonWindowPlacementStore(
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietShield", "UI", "window-placement.json")));
         }
+        builder.Services.AddSingleton<IProfileSelectionStore>(_ => new JsonProfileSelectionStore(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietShield", "Profiles", "selected-profile.json")));
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
 
@@ -92,6 +94,26 @@ public partial class App : Application
         if (diagnosticOutputIndex >= 0 && diagnosticOutputIndex + 1 < e.Args.Length)
         {
             await viewModel.ExportValidationDiagnosticAsync(e.Args[diagnosticOutputIndex + 1], CancellationToken.None).ConfigureAwait(true);
+        }
+
+        if (e.Args.Contains("--phase7-smoke", StringComparer.OrdinalIgnoreCase))
+        {
+            var validationOutput = GetArgumentValue(e.Args, "--gui-validation-output");
+            if (string.IsNullOrWhiteSpace(validationOutput))
+            {
+                throw new InvalidOperationException("Phase 7 GUI validation requires --gui-validation-output.");
+            }
+
+            var result = await Phase7GuiValidator.ValidateAsync(window, viewModel).ConfigureAwait(true);
+            var directory = Path.GetDirectoryName(validationOutput);
+            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+            await File.WriteAllTextAsync(
+                validationOutput,
+                JsonSerializer.Serialize(result, GuiValidationSerializerOptions),
+                CancellationToken.None).ConfigureAwait(true);
+            if (!string.Equals(result.Status, "Passed", StringComparison.Ordinal)) Environment.ExitCode = 2;
+            window.Close();
+            return;
         }
 
         if (e.Args.Contains("--phase6-smoke", StringComparer.OrdinalIgnoreCase))

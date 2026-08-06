@@ -1,0 +1,27 @@
+<UserControl x:Class="QuietShield.App.Pages.CompatibilityGuardPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:QuietShield.App.Controls">
+    <StackPanel>
+        <Border Style="{StaticResource InformationBannerStyle}"><TextBlock Style="{StaticResource BodyTextStyle}" Text="SIMULATION ONLY — Compatibility Guard explains an exact per-program or per-domain relaxation. A global silent protection disable is prohibited." /></Border>
+        <controls:AdaptiveGridPanel ItemMinWidth="330" MaximumColumns="2" Spacing="14">
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Compatibility exclusions" />
+                    <ListBox x:Name="CompatibilityExclusionList" Margin="0,10,0,0" MinHeight="220" ItemsSource="{Binding CompatibilityExclusions}" IsTabStop="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Compatibility exclusion simulations">
+                        <ListBox.ItemTemplate><DataTemplate><StackPanel ToolTip="{Binding Relaxation}"><TextBlock FontWeight="SemiBold" Text="{Binding Kind}" /><TextBlock Style="{StaticResource TrimmedValueTextStyle}" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding Target}" ToolTip="{Binding Target}" /><TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Text="{Binding Relaxation}" ToolTip="{Binding Relaxation}" /><TextBlock FontSize="11" Foreground="{StaticResource MutedTextBrush}" Text="{Binding Expiration}" /></StackPanel></DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Safety exemptions" />
+                    <ListBox x:Name="SafetyExemptionList" Margin="0,10,0,0" MinHeight="220" MaxHeight="390" ItemsSource="{Binding SafetyExemptions}" IsTabStop="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Visible safety exemptions">
+                        <ListBox.ItemTemplate><DataTemplate><StackPanel ToolTip="{Binding Reason}"><TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" /><TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding Reason}" ToolTip="{Binding Reason}" /></StackPanel></DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock Margin="0,10,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Every exemption returns a visible reason. Emergency recovery has highest precedence." />
+                </StackPanel>
+            </Border>
+        </controls:AdaptiveGridPanel>
+    </StackPanel>
+</UserControl>

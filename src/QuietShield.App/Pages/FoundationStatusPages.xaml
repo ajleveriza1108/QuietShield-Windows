@@ -3,10 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Focusable="False">
     <Grid>
-        <StackPanel Visibility="{Binding IsCompatibilityGuard, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Simulated exclusions only" /><TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="Compatibility exclusions can be evaluated by the local policy simulator. No Windows rule, process, service, adapter, Firewall, or DNS setting is changed." /></StackPanel></Border>
-        </StackPanel>
-
         <StackPanel Visibility="{Binding IsMeteredDataWatch, Converter={StaticResource BooleanToVisibilityConverter}}">
             <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Metered and Cellular Data Watch" /><TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding NetworkSummary}" /><TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Traffic accounting is not implemented, and no network cost setting is changed." /></StackPanel></Border>
         </StackPanel>

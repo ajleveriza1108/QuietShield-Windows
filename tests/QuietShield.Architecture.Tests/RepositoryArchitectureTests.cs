@@ -642,6 +642,71 @@ public sealed class RepositoryArchitectureTests
         StringAssert.Contains(foundation, "Not yet active");
     }
 
+    [TestMethod]
+    public void Phase7RegistersNoModifyingWindowsEnforcementImplementation()
+    {
+        var appComposition = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "App.xaml.cs"));
+        var phase7ViewModel = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "ViewModels", "Phase7ProgramConnectionLockViewModel.cs"));
+        var planner = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Windows", "Planning", "WindowsProgramEnforcementPlanner.cs"));
+        foreach (var forbidden in new[]
+        {
+            "Set-NetFirewall", "New-NetFirewall", "Remove-NetFirewall", "Set-DnsClient",
+            "FwpmFilterAdd", "INetFwRule", "netsh advfirewall", "CanExecute: true"
+        })
+        {
+            Assert.IsFalse(appComposition.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"App composition contains prohibited Phase 7 mutator '{forbidden}'.");
+            Assert.IsFalse(phase7ViewModel.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"Phase 7 view model contains prohibited mutator '{forbidden}'.");
+            Assert.IsFalse(planner.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"Phase 7 planner contains prohibited mutator '{forbidden}'.");
+        }
+        Assert.IsFalse(appComposition.Contains("IReadOnlyWindowsProgramEnforcementPlanner", StringComparison.Ordinal));
+        StringAssert.Contains(planner, "false");
+        StringAssert.Contains(planner, "Administrator approval would be required");
+    }
+
+    [TestMethod]
+    public void Phase7PagesAreResponsiveVirtualizedAndNeverExposeEnforcementButtons()
+    {
+        var pages = Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages");
+        var names = new[] { "ProgramConnectionLockPage.xaml", "ProtectionProfilesPage.xaml", "SchedulesPage.xaml", "CompatibilityGuardPage.xaml" };
+        var source = string.Join(Environment.NewLine, names.Select(name => File.ReadAllText(Path.Combine(pages, name))));
+        StringAssert.Contains(source, "SIMULATION ONLY");
+        StringAssert.Contains(source, "AdaptiveGridPanel");
+        StringAssert.Contains(source, "VirtualizingPanel.IsVirtualizing=\"True\"");
+        StringAssert.Contains(source, "ToolTip=");
+        foreach (var prohibited in new[] { "Content=\"Apply\"", "Content=\"Activate\"", "Content=\"Enforce\"" })
+        {
+            Assert.IsFalse(source.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    [TestMethod]
+    public void Phase7GuiSmokeExtendsTheEntirePhase6ResponsiveBaseline()
+    {
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Phase7GuiValidator.cs"));
+        foreach (var required in new[]
+        {
+            "Phase6GuiValidator.ValidateAsync", "Program Connection Lock", "Protection Profiles", "Schedules",
+            "Compatibility Guard", "ApplicationInventorySmokePassed", "ProfileAndPolicySimulationPassed",
+            "PlannerSmokePassed", "UpdatedTablesVirtualized", "MisleadingEnforcementControlsAbsent",
+            "1024d, 640d", "ScrollableWidth"
+        })
+        {
+            StringAssert.Contains(source, required);
+        }
+    }
+
+    [TestMethod]
+    public void Phase7ApplicationIdentityNeverUsesDisplayNameAlone()
+    {
+        var identity = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Core", "ConnectionLock", "ProgramIdentity.cs"));
+        var inventory = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Windows", "Discovery", "Applications", "ApplicationInventoryService.cs"));
+        StringAssert.Contains(identity, "display name alone is never sufficient");
+        StringAssert.Contains(identity, "package family name");
+        StringAssert.Contains(identity, "canonical executable path");
+        StringAssert.Contains(inventory, "CreateStableId");
+        Assert.IsFalse(identity.Contains("StableId = DisplayName", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

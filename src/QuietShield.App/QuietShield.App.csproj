@@ -8,8 +8,8 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>QuietShield.App</AssemblyName>
     <RootNamespace>QuietShield.App</RootNamespace>
-    <Version>0.6.0</Version>
-    <AssemblyInformationalVersion>0.6.0-responsive-gui-hardening</AssemblyInformationalVersion>
+    <Version>0.7.0</Version>
+    <AssemblyInformationalVersion>0.7.0-program-connection-lock-foundation</AssemblyInformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 

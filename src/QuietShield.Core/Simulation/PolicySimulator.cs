@@ -192,6 +192,7 @@ public sealed class PolicySimulator
             ProgramConnectionPolicy.WiFiOnly => connectionType == SimulatedConnectionType.WiFi,
             ProgramConnectionPolicy.EthernetOnly => connectionType == SimulatedConnectionType.Ethernet,
             ProgramConnectionPolicy.CellularOnly => connectionType == SimulatedConnectionType.Cellular,
+            ProgramConnectionPolicy.MeteredOnly => connectionType == SimulatedConnectionType.Metered,
             ProgramConnectionPolicy.UnmeteredOnly => connectionType == SimulatedConnectionType.Unmetered,
             _ => false
         };

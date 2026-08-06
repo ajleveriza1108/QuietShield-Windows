@@ -13,8 +13,8 @@ $logPath = Start-QuietShieldLog -Name 'validation'
 $root = Get-QuietShieldRepositoryRoot
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $resultPath = Join-Path $root ('logs\validation-' + $timestamp + '.json')
-$preStatePath = Join-Path $root ('logs\phase6-pre-state-' + $timestamp + '.json')
-$postStatePath = Join-Path $root ('logs\phase6-post-state-' + $timestamp + '.json')
+$preStatePath = Join-Path $root ('logs\phase7-pre-state-' + $timestamp + '.json')
+$postStatePath = Join-Path $root ('logs\phase7-post-state-' + $timestamp + '.json')
 
 try {
     Assert-QuietShieldToolchain
@@ -115,6 +115,29 @@ try {
         'trx'
     )
 
+    Write-Output 'Running architecture tests explicitly.'
+    Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
+        'test',
+        (Join-Path $root 'tests\QuietShield.Architecture.Tests\QuietShield.Architecture.Tests.csproj'),
+        '--configuration',
+        'Release',
+        '--no-build',
+        '--no-restore'
+    )
+
+    Write-Output 'Running the Phase 7 profile, identity, schedule, decision, compatibility, and planner smoke set.'
+    Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
+        'test',
+        $solution,
+        '--configuration',
+        'Release',
+        '--no-build',
+        '--no-restore',
+        '-p:Platform=x64',
+        '--filter',
+        'FullyQualifiedName~Phase7'
+    )
+
     Write-Output 'Running Phase 4 UDP, TCP, blocked, allowed-forwarding, and transaction-plan smoke tests.'
     Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
         'test',
@@ -162,11 +185,11 @@ try {
         throw ("WPF application executable was not found: {0}" -f $appPath)
     }
 
-    $diagnosticPath = Join-Path $testResults 'phase6-live-diagnostic.json'
-    $guiValidationPath = Join-Path $testResults 'phase6-gui-validation.json'
-    Write-Output ('Starting WPF Phase 6 responsive navigation, resize, DPI-model, long-text, inventory, and keyboard smoke process: ' + $appPath)
+    $diagnosticPath = Join-Path $testResults 'phase7-live-diagnostic.json'
+    $guiValidationPath = Join-Path $testResults 'phase7-gui-validation.json'
+    Write-Output ('Starting WPF Phase 7 navigation, application inventory, policy simulation, planner, responsive, long-text, virtualization, and keyboard smoke process: ' + $appPath)
     $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @(
-        '--phase6-smoke',
+        '--phase7-smoke',
         '--diagnostic-output',
         ('"' + $diagnosticPath + '"'),
         '--gui-validation-output',
@@ -180,10 +203,10 @@ try {
         throw ("WPF smoke process returned exit code {0}." -f $applicationProcess.ExitCode)
     }
     if (-not (Test-Path -LiteralPath $diagnosticPath)) {
-        throw 'The WPF Phase 6 smoke did not create its requested privacy-safe diagnostic summary.'
+        throw 'The WPF Phase 7 smoke did not create its requested privacy-safe diagnostic summary.'
     }
     if (-not (Test-Path -LiteralPath $guiValidationPath)) {
-        throw 'The WPF Phase 6 smoke did not create its GUI validation result.'
+        throw 'The WPF Phase 7 smoke did not create its GUI validation result.'
     }
     $liveDiagnostic = Get-Content -LiteralPath $diagnosticPath -Raw | ConvertFrom-Json
     $guiValidation = Get-Content -LiteralPath $guiValidationPath -Raw | ConvertFrom-Json
@@ -194,20 +217,29 @@ try {
         throw 'QuietShield-owned firewall rules were unexpectedly detected.'
     }
     if ([string]$guiValidation.Status -cne 'Passed') {
-        throw ('Phase 6 GUI validation failed: ' + (@($guiValidation.Errors) -join ' | '))
+        throw ('Phase 7 GUI validation failed: ' + (@($guiValidation.Errors) -join ' | '))
     }
-    if ([int]$guiValidation.PageCount -ne 17) {
-        throw ('Phase 6 GUI validation did not navigate every planned page. Count=' + [string]$guiValidation.PageCount)
+    $phase6GuiValidation = $guiValidation.Phase6Baseline
+    if ([string]$phase6GuiValidation.Status -cne 'Passed') {
+        throw ('The preserved Phase 6 GUI baseline failed during Phase 7 validation: ' + (@($phase6GuiValidation.Errors) -join ' | '))
     }
-    if (@($guiValidation.Resolutions).Count -ne 3 -or @($guiValidation.Resolutions | Where-Object { -not [bool]$_.Passed }).Count -ne 0) {
+    if ([int]$phase6GuiValidation.PageCount -ne 17) {
+        throw ('Phase 7 GUI validation did not navigate every planned page. Count=' + [string]$phase6GuiValidation.PageCount)
+    }
+    if (@($phase6GuiValidation.Resolutions).Count -ne 3 -or @($phase6GuiValidation.Resolutions | Where-Object { -not [bool]$_.Passed }).Count -ne 0) {
         throw 'Phase 6 GUI validation did not pass every required window resolution.'
     }
-    if (@($guiValidation.Scaling).Count -ne 4 -or @($guiValidation.Scaling | Where-Object { -not [bool]$_.Passed }).Count -ne 0) {
+    if (@($phase6GuiValidation.Scaling).Count -ne 4 -or @($phase6GuiValidation.Scaling | Where-Object { -not [bool]$_.Passed }).Count -ne 0) {
         throw 'Phase 6 GUI validation did not pass every required DPI scaling model.'
     }
     foreach ($requiredGuiFlag in @('MaximizedStatePassed', 'LongTextPassed', 'InventoryVirtualized', 'KeyboardNavigationPassed', 'UiResponsive')) {
-        if (-not [bool]$guiValidation.$requiredGuiFlag) {
+        if (-not [bool]$phase6GuiValidation.$requiredGuiFlag) {
             throw ('Phase 6 GUI validation flag failed: ' + $requiredGuiFlag)
+        }
+    }
+    foreach ($requiredPhase7Flag in @('ApplicationInventorySmokePassed', 'ProfileAndPolicySimulationPassed', 'PlannerSmokePassed', 'UpdatedTablesVirtualized', 'SimulationOnlyBannerPassed', 'MisleadingEnforcementControlsAbsent', 'UpdatedPagesResponsive')) {
+        if (-not [bool]$guiValidation.$requiredPhase7Flag) {
+            throw ('Phase 7 GUI validation flag failed: ' + $requiredPhase7Flag)
         }
     }
 
@@ -253,7 +285,7 @@ try {
     }
 
     $validation = [ordered]@{
-        schemaVersion = 6
+        schemaVersion = 7
         timestamp = (Get-Date).ToString('o')
         status = 'Passed'
         powershellVersion = $PSVersionTable.PSVersion.ToString()
@@ -303,7 +335,8 @@ try {
             preStateSnapshot = $preStatePath
             postStateSnapshot = $postStatePath
         }
-        phase6GuiValidation = $guiValidation
+        phase6GuiValidation = $phase6GuiValidation
+        phase7ProgramConnectionLock = $guiValidation
         detected = [ordered]@{
             applicationCount = [int]$liveDiagnostic.applicationTotal
             primaryNetworkType = [string]$liveDiagnostic.primaryNetworkType
@@ -321,7 +354,7 @@ try {
             status = 'Passed'
             exitCode = $applicationProcess.ExitCode
             executable = $appPath
-            phase = 'Phase6GuiHardening'
+            phase = 'Phase7ProgramConnectionLockFoundation'
         }
         safety = [ordered]@{
             administrator = $after.IsAdministrator

@@ -137,7 +137,10 @@ public sealed class ApplicationInventoryService : IApplicationInventoryService, 
             null,
             false,
             systemComponent,
-            StoreDiscoverySources);
+            StoreDiscoverySources)
+        {
+            PackageFamilyName = package.PackageFamilyName
+        };
     }
 
     private static InstalledApplicationInfo CreateFromStartMenuEntry(StartMenuEntry entry)

@@ -16,6 +16,7 @@ public enum ProgramConnectionPolicy
     WiFiOnly,
     EthernetOnly,
     CellularOnly,
+    MeteredOnly,
     UnmeteredOnly,
     AllowedOnAll
 }

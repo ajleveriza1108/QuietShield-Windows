@@ -21,7 +21,10 @@ public sealed record InstalledApplicationInfo(
     ApplicationIconReference? Icon,
     bool ExecutableExists,
     bool IsWindowsSystemComponent,
-    IReadOnlyList<string> DiscoverySources);
+    IReadOnlyList<string> DiscoverySources)
+{
+    public string? PackageFamilyName { get; init; }
+}
 
 public sealed record Win32ExecutableInfo(
     string DisplayName,

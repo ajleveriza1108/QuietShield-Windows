@@ -1,0 +1,31 @@
+<UserControl x:Class="QuietShield.App.Pages.ProtectionProfilesPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:QuietShield.App.Controls">
+    <StackPanel>
+        <Border Style="{StaticResource InformationBannerStyle}"><TextBlock Style="{StaticResource BodyTextStyle}" Text="SIMULATION ONLY — profiles are local policy models and do not create Firewall or WFP rules." /></Border>
+        <controls:AdaptiveGridPanel ItemMinWidth="330" MaximumColumns="2" Spacing="14">
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Protection profiles" />
+                    <TextBlock Margin="0,7,0,10" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding ProfileLimitSummary}" />
+                    <ListBox x:Name="ProtectionProfileList" MinHeight="230" MaxHeight="390" ItemsSource="{Binding ConnectionProfiles}" SelectedItem="{Binding SelectedConnectionProfile}" IsTabStop="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Protection profile list">
+                        <ListBox.ItemTemplate><DataTemplate><StackPanel ToolTip="{Binding Description}"><TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" /><TextBlock FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding Description}" TextTrimming="CharacterEllipsis" /><TextBlock FontSize="11" Foreground="{StaticResource MutedTextBrush}" Text="{Binding DefaultPolicy, StringFormat=Default: {0}}" /></StackPanel></DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Selected profile details" />
+                    <TextBlock Margin="0,10,0,0" Style="{StaticResource EyebrowTextStyle}" Text="NAME" /><TextBlock Margin="0,3,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding SelectedConnectionProfile.Name}" ToolTip="{Binding SelectedConnectionProfile.Name}" />
+                    <TextBlock Margin="0,10,0,0" Style="{StaticResource EyebrowTextStyle}" Text="DESCRIPTION" /><TextBlock Margin="0,3,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding SelectedConnectionProfile.Description}" ToolTip="{Binding SelectedConnectionProfile.Description}" />
+                    <TextBlock Margin="0,10,0,0" Style="{StaticResource EyebrowTextStyle}" Text="DEFAULT POLICY" /><TextBlock Margin="0,3,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding SelectedConnectionProfile.DefaultPolicy}" />
+                    <TextBlock Margin="0,10,0,0" Style="{StaticResource EyebrowTextStyle}" Text="FIXED" /><TextBlock Margin="0,3,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding SelectedConnectionProfile.IsFixed}" />
+                    <TextBlock Margin="0,13,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding ProfilePersistenceStatus}" ToolTip="{Binding ProfilePersistenceStatus}" />
+                    <TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding ProfileJsonSummary}" ToolTip="{Binding ProfileJsonSummary}" />
+                    <TextBlock Margin="0,9,0,0" Style="{StaticResource ExplanatoryTextStyle}" Foreground="{StaticResource WarningBrush}" Text="Block All is fixed and cannot be edited or deleted. Duplicate names and unsupported rules are refused." />
+                </StackPanel>
+            </Border>
+        </controls:AdaptiveGridPanel>
+    </StackPanel>
+</UserControl>
