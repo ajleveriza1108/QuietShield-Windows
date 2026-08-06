@@ -113,6 +113,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _dnsRehearsalReadinessDiscovery = dnsRehearsalReadinessDiscovery;
         _logger = logger;
         InitializeProgramConnectionLock(profileSelectionStore);
+        InitializeProgramLockTransactions();
         NavigationItems = new ObservableCollection<NavigationItem>
         {
             new("Dashboard", "Foundation status and current read-only discovery.", "\uE80F", "READ-ONLY FOUNDATION", true),
@@ -184,7 +185,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsLicensing => SelectedPage.Title == "Licensing";
     public bool IsSettings => SelectedPage.Title == "Settings";
     public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsProtectionProfiles || IsSchedules || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings);
-    public string VersionText { get; } = "Version 0.7.0 - Program Connection Lock Foundation";
+    public string VersionText { get; } = "Version 0.8.0 - Program Connection Lock Transaction Framework";
     public string FoundationMode { get; } = "Foundation Mode";
     public string ProtectionState { get; } = "Protection Not Activated";
     public string ActiveProfile { get; } = "Simulation only";

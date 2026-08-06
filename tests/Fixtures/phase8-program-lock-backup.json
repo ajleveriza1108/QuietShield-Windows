@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "productMarker": "QuietShield",
+  "purpose": "ProgramLockTransactionBackup",
+  "backupId": "88888888-8888-8888-8888-888888888888",
+  "transactionId": "88888888-8888-8888-8888-888888888889",
+  "createdAtUtc": "2026-08-06T04:00:00.0000000+00:00",
+  "activeProfileId": "standard",
+  "programPolicies": [],
+  "applicationIdentities": [],
+  "quietShieldOwnedRules": [],
+  "payloadSha256": "D9E12A4DBE0E4C84B0CA76A64A8B7BAE6F30AB72CDD813028C0D097EAAF2CD21"
+}

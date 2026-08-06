@@ -34,7 +34,12 @@ public sealed class RepositoryArchitectureTests
             "System.Management",
             "Windows.Win32",
             "RegistryKey",
-            "Firewall"
+            "NetFwTypeLib",
+            "INetFw",
+            "WindowsFirewallHelper",
+            "Set-NetFirewall",
+            "New-NetFirewall",
+            "Remove-NetFirewall"
         };
 
         foreach (var file in Directory.EnumerateFiles(coreDirectory, "*.cs", SearchOption.AllDirectories))
@@ -705,6 +710,155 @@ public sealed class RepositoryArchitectureTests
         StringAssert.Contains(identity, "canonical executable path");
         StringAssert.Contains(inventory, "CreateStableId");
         Assert.IsFalse(identity.Contains("StableId = DisplayName", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void Phase8RegistersOnlyReadOnlyWindowsProgramLockCapability()
+    {
+        var windowsDirectory = Path.Combine(RepositoryRoot, "src", "QuietShield.Windows");
+        var windowsSource = string.Join(Environment.NewLine,
+            Directory.EnumerateFiles(windowsDirectory, "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
+        var appComposition = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "App.xaml.cs"));
+        foreach (var modifyingContract in new[]
+                 {
+                     "IProgramLockRuleCreator", "IProgramLockRuleUpdater", "IProgramLockRuleRemover",
+                     "IProgramLockRollback", "IProgramLockInterruptedTransactionRecovery"
+                 })
+        {
+            Assert.IsFalse(windowsSource.Contains(modifyingContract, StringComparison.Ordinal),
+                $"QuietShield.Windows contains a modifying Program Lock contract: {modifyingContract}.");
+            Assert.IsFalse(appComposition.Contains(modifyingContract, StringComparison.Ordinal),
+                $"Application composition registered a modifying Program Lock contract: {modifyingContract}.");
+        }
+        StringAssert.Contains(windowsSource, "IReadOnlyProgramLockWindowsCapability");
+        StringAssert.Contains(windowsSource, "ModifyingImplementationRegistered");
+        StringAssert.Contains(windowsSource, "false");
+        StringAssert.Contains(appComposition, "AddSingleton<IReadOnlyProgramLockWindowsCapability, ReadOnlyProgramLockWindowsCapability>");
+    }
+
+    [TestMethod]
+    public void Phase8RecoveryScriptsArePowerShell51WhatIfOnlyAndNeverSelfElevate()
+    {
+        var scripts = Path.Combine(RepositoryRoot, "scripts");
+        var restore = File.ReadAllText(Path.Combine(scripts, "Restore-ProgramLockRules.ps1"));
+        var common = File.ReadAllText(Path.Combine(scripts, "ProgramLockTransaction.Script.Common.ps1"));
+        var test = File.ReadAllText(Path.Combine(scripts, "Test-ProgramLockTransaction.ps1"));
+        foreach (var required in new[]
+                 {
+                     "SupportsShouldProcess = $true", "ExplicitUserApproval", "Test-QuietShieldProgramLockAdministrator",
+                     "Test-QuietShieldProgramLockBackup", "$WhatIfPreference", "no modifying Windows implementation"
+                 })
+        {
+            StringAssert.Contains(restore, required);
+        }
+        foreach (var source in new[] { restore, common, test })
+        {
+            Assert.IsFalse(source.Contains("-Verb RunAs", StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(source.Contains("Start-Process", StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(source.Contains("netsh", StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(source.Contains("Fwpm", StringComparison.OrdinalIgnoreCase));
+        }
+        StringAssert.Contains(common, "SHA256");
+        StringAssert.Contains(test, "canExecute = $false");
+    }
+
+    [TestMethod]
+    public void Phase8LaunchersUsePowerShell51SafetyFlagsAndNoElevation()
+    {
+        foreach (var launcherName in new[]
+                 {
+                     "Test-ProgramLockTransaction.bat", "Show-ProgramLockTransactionState.bat", "Emergency-Restore-ProgramLock.bat"
+                 })
+        {
+            var launcher = File.ReadAllText(Path.Combine(RepositoryRoot, launcherName));
+            StringAssert.Contains(launcher, "powershell.exe -NoProfile -ExecutionPolicy Bypass -File");
+            Assert.IsFalse(launcher.Contains("RunAs", StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    [TestMethod]
+    public void Phase8ProgramLockPageIsResponsiveVirtualizedAndExposesOnlyPreviewAndExportActions()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages", "ProgramConnectionLockPage.xaml"));
+        foreach (var required in new[]
+                 {
+                     "Enforcement is not active. No Windows Firewall or WFP rule has been changed.",
+                     "ProgramLockTransactionPlanList", "AdaptiveGridPanel", "VirtualizingPanel.IsVirtualizing=\"True\"",
+                     "VirtualizingPanel.VirtualizationMode=\"Recycling\"", "TrimmedValueTextStyle",
+                     "ToolTip=\"{Binding Application}\"", "ToolTip=\"{Binding Reason}\"",
+                     "Content=\"_Preview Enforcement Plan\"", "Content=\"_Export Plan\""
+                 })
+        {
+            StringAssert.Contains(xaml, required);
+        }
+        foreach (var prohibited in new[] { "Content=\"Apply\"", "Content=\"Activate\"", "Content=\"Enforce\"", "Content=\"Administrator\"" })
+        {
+            Assert.IsFalse(xaml.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    [TestMethod]
+    public void Phase8GuiSmokeExtendsPhase7AndValidatesPlanSafety()
+    {
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Phase8GuiValidator.cs"));
+        foreach (var required in new[]
+                 {
+                     "Phase7GuiValidator.ValidateAsync", "Program Connection Lock", "TransactionPlanSmokePassed",
+                     "PlanExportSmokePassed", "BackupRollbackReadinessPassed", "PlanViewerVirtualized",
+                     "MisleadingEnforcementControlsAbsent", "InactiveBannerPassed", "LongTextAffordancesPassed",
+                     "1024d, 640d", "ScrollableWidth"
+                 })
+        {
+            StringAssert.Contains(source, required);
+        }
+    }
+
+    [TestMethod]
+    public void Phase8StrategyDocumentsExactPolicyLimitsAndDeferredKernelLayer()
+    {
+        var strategy = File.ReadAllText(Path.Combine(RepositoryRoot, "docs", "PROGRAM-LOCK-ENFORCEMENT-STRATEGY.md"));
+        foreach (var policy in new[]
+                 {
+                     "Blocked", "Allowed on All", "Wi-Fi Only", "Ethernet Only", "Cellular Only", "Metered Only", "Unmetered Only"
+                 })
+        {
+            StringAssert.Contains(strategy, policy);
+        }
+        StringAssert.Contains(strategy, "user-mode Windows Filtering Platform");
+        StringAssert.Contains(strategy, "kernel callout drivers deferred");
+        StringAssert.Contains(strategy, "QuietShield.ProgramLock.<stable-rule-id>");
+    }
+
+    [TestMethod]
+    public void Phase8EmergencyRestoreWhatIfValidatesBackupWithoutChangingWindows()
+    {
+        var script = Path.Combine(RepositoryRoot, "scripts", "Restore-ProgramLockRules.ps1");
+        var fixture = Path.Combine(RepositoryRoot, "tests", "Fixtures", "phase8-program-lock-backup.json");
+        var start = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-ExecutionPolicy");
+        start.ArgumentList.Add("Bypass");
+        start.ArgumentList.Add("-File");
+        start.ArgumentList.Add(script);
+        start.ArgumentList.Add("-BackupPath");
+        start.ArgumentList.Add(fixture);
+        start.ArgumentList.Add("-WhatIf");
+        using var process = System.Diagnostics.Process.Start(start);
+        Assert.IsNotNull(process);
+        Assert.IsTrue(process.WaitForExit(10_000), "Phase 8 restore -WhatIf timed out.");
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        Assert.AreEqual(0, process.ExitCode, error);
+        StringAssert.Contains(output, "WhatIfPassed");
+        StringAssert.Contains(output, "ModifyingImplementationAvailable");
+        StringAssert.Contains(output, "False");
     }
 
     private static string FindRepositoryRoot()

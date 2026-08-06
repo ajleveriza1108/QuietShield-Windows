@@ -6,10 +6,38 @@
     <StackPanel>
         <Border Style="{StaticResource InformationBannerStyle}">
             <StackPanel>
-                <TextBlock FontWeight="SemiBold" Text="SIMULATION ONLY — no Windows rule is applied" />
-                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Program identities come from the existing read-only inventory. Firewall and WFP plans are explanatory and cannot execute." />
+                <TextBlock FontWeight="SemiBold" Text="Enforcement is not active. No Windows Firewall or WFP rule has been changed." />
+                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Phase 8 previews deterministic transactions, verified backups, and rollback behavior. Every operation remains non-executable." />
             </StackPanel>
         </Border>
+        <controls:AdaptiveGridPanel ItemMinWidth="235" MaximumColumns="4" Spacing="10">
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Transaction readiness" />
+                    <TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding TransactionReadiness}" ToolTip="{Binding TransactionReadiness}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Selected profile" />
+                    <TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding SelectedTransactionProfile}" ToolTip="{Binding SelectedTransactionProfile}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Policy support" />
+                    <TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}">
+                        <Run Text="{Binding EnforceablePolicyCount, Mode=OneWay}" /><Run Text=" enforceable / " /><Run Text="{Binding UnsupportedPolicyCount, Mode=OneWay}" /><Run Text=" require runtime management" />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Proposed operations" />
+                    <TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding ProposedRuleOperationCount}" />
+                </StackPanel>
+            </Border>
+        </controls:AdaptiveGridPanel>
         <controls:AdaptiveGridPanel ItemMinWidth="340" MaximumColumns="2" Spacing="14">
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
@@ -75,6 +103,58 @@
                 <TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding DecisionEvidence}" ToolTip="{Binding DecisionEvidence}" />
                 <TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding PlannerSummary}" ToolTip="{Binding PlannerSummary}" />
                 <TextBlock Margin="0,9,0,0" Style="{StaticResource ExplanatoryTextStyle}" Foreground="{StaticResource WarningBrush}" Text="There is intentionally no Apply, Activate, or Enforce control. Every plan has CanExecute=false." />
+            </StackPanel>
+        </Border>
+        <Border Margin="0,14,0,0" Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Transaction safety and recovery readiness" />
+                <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding BackupReadiness}" ToolTip="{Binding BackupReadiness}" />
+                <TextBlock Margin="0,6,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding RollbackReadiness}" ToolTip="{Binding RollbackReadiness}" />
+                <TextBlock Margin="0,6,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding EmergencyRecoveryReadiness}" ToolTip="{Binding EmergencyRecoveryReadiness}" />
+                <WrapPanel Margin="0,12,0,0" KeyboardNavigation.TabNavigation="Local">
+                    <Button Margin="0,0,8,8" Command="{Binding PreviewEnforcementPlanCommand}" Content="_Preview Enforcement Plan" ToolTip="Generate a deterministic, read-only transaction plan." AutomationProperties.Name="Preview Enforcement Plan" />
+                    <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ExportEnforcementPlanCommand}" Content="_Export Plan" ToolTip="Export the current non-executable plan as JSON." AutomationProperties.Name="Export Plan" />
+                </WrapPanel>
+                <TextBlock Margin="0,3,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding TransactionPreviewStatus}" ToolTip="{Binding TransactionPreviewStatus}" />
+            </StackPanel>
+        </Border>
+        <Border Margin="0,14,0,0" Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Read-only transaction-plan viewer" />
+                <ListView x:Name="ProgramLockTransactionPlanList" Margin="0,10,0,0" MinHeight="170" MaxHeight="360"
+                          ItemsSource="{Binding ProgramLockPlanOperations}"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                          VirtualizingPanel.ScrollUnit="Pixel" IsTabStop="True"
+                          KeyboardNavigation.DirectionalNavigation="Contained"
+                          AutomationProperties.Name="Read-only Program Lock transaction plan">
+                    <ListView.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListView.ItemsPanel>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid MinHeight="88" Margin="2,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,12,0">
+                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontWeight="SemiBold" Text="{Binding Application}" ToolTip="{Binding Application}" />
+                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding CurrentSimulatedPolicy}" ToolTip="{Binding CurrentSimulatedPolicy}" />
+                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Text="{Binding FutureRuleId}" ToolTip="{Binding FutureRuleId}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontWeight="SemiBold" Text="{Binding ProposedOperation}" ToolTip="{Binding ProposedOperation}" />
+                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" Text="{Binding Enforceability}" ToolTip="{Binding Enforceability}" />
+                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Text="{Binding RollbackAction}" ToolTip="{Binding RollbackAction}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" Text="{Binding Reason}" ToolTip="{Binding Reason}" />
+                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding RequiredPrivilege}" ToolTip="{Binding RequiredPrivilege}" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
             </StackPanel>
         </Border>
     </StackPanel>

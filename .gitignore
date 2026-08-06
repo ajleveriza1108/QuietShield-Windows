@@ -18,6 +18,8 @@ TestResults/
 # Logs
 logs/*.log
 logs/*.json
+logs/**/*.log
+logs/**/*.json
 !logs/.gitkeep
 
 # Package caches and temporary files

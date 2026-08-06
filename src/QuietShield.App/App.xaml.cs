@@ -14,6 +14,7 @@ using QuietShield.Windows.Dns;
 using QuietShield.Windows.Discovery;
 using QuietShield.Windows.Discovery.Applications;
 using QuietShield.Windows.Integration;
+using QuietShield.Windows.Planning;
 
 namespace QuietShield.App;
 
@@ -49,6 +50,7 @@ public partial class App : Application
         builder.Services.AddSingleton<IStartupCapabilityDiscovery, DeferredStartupCapabilityDiscovery>();
         builder.Services.AddSingleton<INotificationCapabilityDiscovery, DeferredNotificationCapabilityDiscovery>();
         builder.Services.AddSingleton<IPowerStateDiscovery, ReadOnlyPowerStateDiscovery>();
+        builder.Services.AddSingleton<IReadOnlyProgramLockWindowsCapability, ReadOnlyProgramLockWindowsCapability>();
         builder.Services.AddSingleton<ISystemTrayFoundation, FoundationSystemTrayService>();
         builder.Services.AddSingleton<INetworkRefreshNotificationSource, WindowsNetworkRefreshNotificationSource>();
         builder.Services.AddSingleton<IReadOnlyDiscoveryCoordinator, ReadOnlyDiscoveryCoordinator>();
@@ -94,6 +96,27 @@ public partial class App : Application
         if (diagnosticOutputIndex >= 0 && diagnosticOutputIndex + 1 < e.Args.Length)
         {
             await viewModel.ExportValidationDiagnosticAsync(e.Args[diagnosticOutputIndex + 1], CancellationToken.None).ConfigureAwait(true);
+        }
+
+        if (e.Args.Contains("--phase8-smoke", StringComparer.OrdinalIgnoreCase))
+        {
+            var validationOutput = GetArgumentValue(e.Args, "--gui-validation-output");
+            var planExportOutput = GetArgumentValue(e.Args, "--plan-export-output");
+            if (string.IsNullOrWhiteSpace(validationOutput) || string.IsNullOrWhiteSpace(planExportOutput))
+            {
+                throw new InvalidOperationException("Phase 8 GUI validation requires --gui-validation-output and --plan-export-output.");
+            }
+
+            var result = await Phase8GuiValidator.ValidateAsync(window, viewModel, planExportOutput).ConfigureAwait(true);
+            var directory = Path.GetDirectoryName(validationOutput);
+            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+            await File.WriteAllTextAsync(
+                validationOutput,
+                JsonSerializer.Serialize(result, GuiValidationSerializerOptions),
+                CancellationToken.None).ConfigureAwait(true);
+            if (!string.Equals(result.Status, "Passed", StringComparison.Ordinal)) Environment.ExitCode = 2;
+            window.Close();
+            return;
         }
 
         if (e.Args.Contains("--phase7-smoke", StringComparer.OrdinalIgnoreCase))

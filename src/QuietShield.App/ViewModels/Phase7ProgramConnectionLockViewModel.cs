@@ -132,6 +132,7 @@ public sealed partial class MainViewModel
             IdentitySummary = "No exact program identity is selected.";
             DecisionEvidence = "No decision has been evaluated.";
             PlannerSummary = "No future enforcement plan has been generated.";
+            RefreshProgramLockTransactionPlan();
             return;
         }
 
@@ -161,6 +162,7 @@ public sealed partial class MainViewModel
         var plannedRule = rule ?? new ConnectionLockProgramRule(identity, _selectedConnectionProfile.DefaultPolicy);
         var plan = new WindowsProgramEnforcementPlanner().Plan(plannedRule);
         PlannerSummary = $"{plan.Strategy}; target: {plan.Target}; privilege: {plan.RequiredPrivilege} Rollback steps: {plan.RollbackSteps.Count}. Executable: {plan.CanExecute}. {plan.UnsupportedOrAmbiguousReason}".Trim();
+        RefreshProgramLockTransactionPlan();
     }
 
     private ProgramTemporaryAllowance? CreateTemporaryAllowance(DateTimeOffset now) => SelectedTemporaryAllowance switch

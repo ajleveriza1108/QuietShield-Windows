@@ -13,8 +13,8 @@ $logPath = Start-QuietShieldLog -Name 'validation'
 $root = Get-QuietShieldRepositoryRoot
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $resultPath = Join-Path $root ('logs\validation-' + $timestamp + '.json')
-$preStatePath = Join-Path $root ('logs\phase7-pre-state-' + $timestamp + '.json')
-$postStatePath = Join-Path $root ('logs\phase7-post-state-' + $timestamp + '.json')
+$preStatePath = Join-Path $root ('logs\phase8-pre-state-' + $timestamp + '.json')
+$postStatePath = Join-Path $root ('logs\phase8-post-state-' + $timestamp + '.json')
 
 try {
     Assert-QuietShieldToolchain
@@ -55,7 +55,10 @@ try {
         'Test-DnsTransactionPlan.bat',
         'Show-DnsTransactionState.bat',
         'Emergency-Restore-Dns.bat',
-        'Run-DnsActivationRehearsal.bat'
+        'Run-DnsActivationRehearsal.bat',
+        'Test-ProgramLockTransaction.bat',
+        'Show-ProgramLockTransactionState.bat',
+        'Emergency-Restore-ProgramLock.bat'
     )
     foreach ($launcher in $launchers) {
         $launcherPath = Join-Path $root $launcher
@@ -138,6 +141,19 @@ try {
         'FullyQualifiedName~Phase7'
     )
 
+    Write-Output 'Running the Phase 8 identity, preflight, plan, backup, rollback, recovery, and read-only Windows capability smoke set.'
+    Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
+        'test',
+        $solution,
+        '--configuration',
+        'Release',
+        '--no-build',
+        '--no-restore',
+        '-p:Platform=x64',
+        '--filter',
+        'FullyQualifiedName~Phase8'
+    )
+
     Write-Output 'Running Phase 4 UDP, TCP, blocked, allowed-forwarding, and transaction-plan smoke tests.'
     Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
         'test',
@@ -185,15 +201,18 @@ try {
         throw ("WPF application executable was not found: {0}" -f $appPath)
     }
 
-    $diagnosticPath = Join-Path $testResults 'phase7-live-diagnostic.json'
-    $guiValidationPath = Join-Path $testResults 'phase7-gui-validation.json'
-    Write-Output ('Starting WPF Phase 7 navigation, application inventory, policy simulation, planner, responsive, long-text, virtualization, and keyboard smoke process: ' + $appPath)
+    $diagnosticPath = Join-Path $testResults 'phase8-live-diagnostic.json'
+    $guiValidationPath = Join-Path $testResults 'phase8-gui-validation.json'
+    $planExportPath = Join-Path $testResults 'phase8-enforcement-plan.json'
+    Write-Output ('Starting WPF Phase 8 transaction-plan, navigation, responsive, long-text, virtualization, and keyboard smoke process: ' + $appPath)
     $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @(
-        '--phase7-smoke',
+        '--phase8-smoke',
         '--diagnostic-output',
         ('"' + $diagnosticPath + '"'),
         '--gui-validation-output',
-        ('"' + $guiValidationPath + '"')
+        ('"' + $guiValidationPath + '"'),
+        '--plan-export-output',
+        ('"' + $planExportPath + '"')
     ) -WorkingDirectory (Split-Path -Parent $appPath) -PassThru
     $exited = $applicationProcess.WaitForExit(30000)
     if (-not $exited) {
@@ -203,10 +222,10 @@ try {
         throw ("WPF smoke process returned exit code {0}." -f $applicationProcess.ExitCode)
     }
     if (-not (Test-Path -LiteralPath $diagnosticPath)) {
-        throw 'The WPF Phase 7 smoke did not create its requested privacy-safe diagnostic summary.'
+        throw 'The WPF Phase 8 smoke did not create its requested privacy-safe diagnostic summary.'
     }
     if (-not (Test-Path -LiteralPath $guiValidationPath)) {
-        throw 'The WPF Phase 7 smoke did not create its GUI validation result.'
+        throw 'The WPF Phase 8 smoke did not create its GUI validation result.'
     }
     $liveDiagnostic = Get-Content -LiteralPath $diagnosticPath -Raw | ConvertFrom-Json
     $guiValidation = Get-Content -LiteralPath $guiValidationPath -Raw | ConvertFrom-Json
@@ -217,14 +236,18 @@ try {
         throw 'QuietShield-owned firewall rules were unexpectedly detected.'
     }
     if ([string]$guiValidation.Status -cne 'Passed') {
-        throw ('Phase 7 GUI validation failed: ' + (@($guiValidation.Errors) -join ' | '))
+        throw ('Phase 8 GUI validation failed: ' + (@($guiValidation.Errors) -join ' | '))
     }
-    $phase6GuiValidation = $guiValidation.Phase6Baseline
+    $phase7GuiValidation = $guiValidation.Phase7Baseline
+    if ([string]$phase7GuiValidation.Status -cne 'Passed') {
+        throw ('The preserved Phase 7 GUI baseline failed during Phase 8 validation: ' + (@($phase7GuiValidation.Errors) -join ' | '))
+    }
+    $phase6GuiValidation = $phase7GuiValidation.Phase6Baseline
     if ([string]$phase6GuiValidation.Status -cne 'Passed') {
-        throw ('The preserved Phase 6 GUI baseline failed during Phase 7 validation: ' + (@($phase6GuiValidation.Errors) -join ' | '))
+        throw ('The preserved Phase 6 GUI baseline failed during Phase 8 validation: ' + (@($phase6GuiValidation.Errors) -join ' | '))
     }
     if ([int]$phase6GuiValidation.PageCount -ne 17) {
-        throw ('Phase 7 GUI validation did not navigate every planned page. Count=' + [string]$phase6GuiValidation.PageCount)
+        throw ('Phase 8 GUI validation did not navigate every planned page. Count=' + [string]$phase6GuiValidation.PageCount)
     }
     if (@($phase6GuiValidation.Resolutions).Count -ne 3 -or @($phase6GuiValidation.Resolutions | Where-Object { -not [bool]$_.Passed }).Count -ne 0) {
         throw 'Phase 6 GUI validation did not pass every required window resolution.'
@@ -238,10 +261,36 @@ try {
         }
     }
     foreach ($requiredPhase7Flag in @('ApplicationInventorySmokePassed', 'ProfileAndPolicySimulationPassed', 'PlannerSmokePassed', 'UpdatedTablesVirtualized', 'SimulationOnlyBannerPassed', 'MisleadingEnforcementControlsAbsent', 'UpdatedPagesResponsive')) {
-        if (-not [bool]$guiValidation.$requiredPhase7Flag) {
+        if (-not [bool]$phase7GuiValidation.$requiredPhase7Flag) {
             throw ('Phase 7 GUI validation flag failed: ' + $requiredPhase7Flag)
         }
     }
+
+    foreach ($requiredPhase8Flag in @('TransactionPlanSmokePassed', 'PlanExportSmokePassed', 'BackupRollbackReadinessPassed', 'PlanViewerVirtualized', 'MisleadingEnforcementControlsAbsent', 'InactiveBannerPassed', 'LongTextAffordancesPassed', 'UpdatedPageResponsive')) {
+        if (-not [bool]$guiValidation.$requiredPhase8Flag) {
+            throw ('Phase 8 GUI validation flag failed: ' + $requiredPhase8Flag)
+        }
+    }
+    if (-not (Test-Path -LiteralPath $planExportPath -PathType Leaf)) { throw 'The WPF Phase 8 smoke did not export its requested read-only plan.' }
+    $exportedPlan = Get-Content -LiteralPath $planExportPath -Raw | ConvertFrom-Json
+    if ([bool]$exportedPlan.canExecute) { throw 'The exported Phase 8 plan unexpectedly permits execution.' }
+
+    $programLockFixture = Join-Path $root 'tests\Fixtures\phase8-program-lock-backup.json'
+    $programLockDryRunPath = Join-Path $testResults 'phase8-transaction-dry-run.json'
+    Write-Output 'Running the read-only Program Lock transaction, rollback, interrupted recovery, and backup smoke.'
+    $programLockLauncher = Join-Path $root 'Test-ProgramLockTransaction.bat'
+    Invoke-QuietShieldCommand -FilePath $programLockLauncher -ArgumentList @('-BackupPath', $programLockFixture, '-OutputPath', $programLockDryRunPath)
+    $programLockDryRun = Get-Content -LiteralPath $programLockDryRunPath -Raw | ConvertFrom-Json
+    if ([string]$programLockDryRun.status -cne 'Passed' -or [bool]$programLockDryRun.canExecute -or
+        -not [bool]$programLockDryRun.rollbackSimulationPassed -or -not [bool]$programLockDryRun.interruptedRecoverySimulationPassed) {
+        throw 'The Phase 8 transaction or recovery dry-run failed its safety contract.'
+    }
+
+    Write-Output 'Showing the validated read-only Program Lock transaction state.'
+    Invoke-QuietShieldCommand -FilePath (Join-Path $root 'Show-ProgramLockTransactionState.bat') -ArgumentList @('-BackupPath', $programLockFixture)
+
+    Write-Output 'Running emergency Program Lock restore in WhatIf mode against a valid QuietShield fixture.'
+    Invoke-QuietShieldCommand -FilePath (Join-Path $root 'Emergency-Restore-ProgramLock.bat') -ArgumentList @('-BackupPath', $programLockFixture, '-WhatIf')
 
     $backupFixture = Join-Path $root 'tests\Fixtures\phase4-valid-backup.json'
     Write-Output 'Running the transaction-plan launcher in read-only WhatIf mode with a valid non-production fixture.'
@@ -285,7 +334,7 @@ try {
     }
 
     $validation = [ordered]@{
-        schemaVersion = 7
+        schemaVersion = 8
         timestamp = (Get-Date).ToString('o')
         status = 'Passed'
         powershellVersion = $PSVersionTable.PSVersion.ToString()
@@ -336,7 +385,19 @@ try {
             postStateSnapshot = $postStatePath
         }
         phase6GuiValidation = $phase6GuiValidation
-        phase7ProgramConnectionLock = $guiValidation
+        phase7ProgramConnectionLock = $phase7GuiValidation
+        phase8ProgramLockTransaction = [ordered]@{
+            gui = $guiValidation
+            planExport = $planExportPath
+            transactionDryRun = $programLockDryRunPath
+            deterministicPlanGeneration = 'Passed'
+            backupValidation = 'Passed'
+            rollbackSimulation = 'Passed'
+            interruptedRecoverySimulation = 'Passed'
+            emergencyRestoreWhatIf = 'Passed'
+            modifyingWindowsImplementationRegistered = $false
+            realEnforcement = $false
+        }
         detected = [ordered]@{
             applicationCount = [int]$liveDiagnostic.applicationTotal
             primaryNetworkType = [string]$liveDiagnostic.primaryNetworkType
@@ -354,7 +415,7 @@ try {
             status = 'Passed'
             exitCode = $applicationProcess.ExitCode
             executable = $appPath
-            phase = 'Phase7ProgramConnectionLockFoundation'
+            phase = 'Phase8ProgramConnectionLockTransactionFramework'
         }
         safety = [ordered]@{
             administrator = $after.IsAdministrator
