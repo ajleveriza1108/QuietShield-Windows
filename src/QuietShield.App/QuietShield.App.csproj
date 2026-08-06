@@ -8,8 +8,8 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>QuietShield.App</AssemblyName>
     <RootNamespace>QuietShield.App</RootNamespace>
-    <Version>0.5.0</Version>
-    <AssemblyInformationalVersion>0.5.0-controlled-dns-activation-rehearsal</AssemblyInformationalVersion>
+    <Version>0.6.0</Version>
+    <AssemblyInformationalVersion>0.6.0-responsive-gui-hardening</AssemblyInformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 

@@ -37,6 +37,10 @@ public sealed class ApplicationListItem
 
 public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
 {
+    private static readonly Action<ILogger, Exception?> LogInitializedMessage = LoggerMessage.Define(
+        LogLevel.Information,
+        new EventId(2003, "ResponsiveGuiInitialized"),
+        "QuietShield Phase 6 responsive GUI foundation initialized; Windows DNS and protection engines remain unchanged.");
     private readonly IReadOnlyDiscoveryCoordinator _discovery;
     private readonly INetworkRefreshNotificationSource _notifications;
     private readonly IPrivacySafeDiagnosticExporter _diagnostics;
@@ -59,6 +63,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private ProgramConnectionPolicy _selectedPolicy = ProgramConnectionPolicy.AllowedOnAll;
     private ProtectionMode _selectedProfileMode = ProtectionMode.Standard;
     private string _networkSummary = "Read-only detection pending";
+    private string _networkTypeSummary = "Pending";
+    private string _meteredStatusSummary = "Pending";
     private string _firewallSummary = "Pending";
     private string _dnsSummary = "Pending";
     private string _applicationCount = "Pending";
@@ -72,6 +78,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private string _licenseSummary = LicenseSnapshot.Foundation.DisplayStatus;
     private string _traySummary = "System tray foundation inactive";
     private bool _isRefreshing;
+    private bool _isNavigationCompact;
 
     public MainViewModel(
         IReadOnlyDiscoveryCoordinator discovery,
@@ -101,16 +108,23 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _logger = logger;
         NavigationItems = new ObservableCollection<NavigationItem>
         {
-            new("Dashboard", "Foundation status and real read-only discovery", true),
-            new("Program Connection Lock", "Local per-program policy simulation only"),
-            new("Protection Profiles", "Simulation profiles; protection remains inactive"),
-            new("Schedules", "Local schedule simulation only"),
-            new("Metered Data Watch", "Current Windows metered state; no traffic accounting"),
-            new("Aggressive Program Watch", "Monitoring engine status"),
-            new("Compatibility Guard", "Simulated exclusions only"),
-            new("DNS Protection", "Local DNS policy and list simulation; Windows DNS unchanged"),
-            new("Activity and Statistics", "Read-only discovery activity only"),
-            new("Settings", "Refresh, cancel, cache, and privacy-safe diagnostics")
+            new("Dashboard", "Foundation status and current read-only discovery.", "\uE80F", "READ-ONLY FOUNDATION", true),
+            new("Protection", "Protection overview; enforcement remains disabled.", "\uEA18", "NOT ACTIVE"),
+            new("Program Connection Lock", "Local per-program policy simulation only.", "\uE839", "SIMULATION ONLY"),
+            new("Protection Profiles", "Preview local protection profiles without applying them.", "\uE77B", "SIMULATION ONLY"),
+            new("Schedules", "Preview schedule behavior without creating tasks or startup entries.", "\uE787", "SIMULATION ONLY"),
+            new("Metered and Cellular Data Watch", "Current Windows metered state; no traffic accounting.", "\uE9D9", "READ-ONLY"),
+            new("Aggressive Program Watch", "Program monitoring is planned and currently inactive.", "\uE7BA", "NOT ACTIVE"),
+            new("Compatibility Guard", "Preview compatibility exclusions without changing Windows.", "\uE8D4", "SIMULATION ONLY"),
+            new("DNS Protection", "Local DNS policy simulation; Windows DNS remains unchanged.", "\uE774", "ACTIVATION BLOCKED"),
+            new("Allowlist and Blocklist", "Manage in-memory DNS simulation entries.", "\uE8D7", "SIMULATION ONLY"),
+            new("Activity and Statistics", "Read-only discovery activity without fabricated statistics.", "\uE9D2", "READ-ONLY"),
+            new("Parent and Child Controls", "Family controls are planned and currently inactive.", "\uE716", "NOT ACTIVE"),
+            new("Private Browser", "Private browsing integration is planned and currently inactive.", "\uE727", "NOT ACTIVE"),
+            new("File Safety", "File safety integration is planned and currently inactive.", "\uE8A5", "NOT ACTIVE"),
+            new("Licensing", "View the current local licensing foundation state.", "\uE8C7", "FOUNDATION"),
+            new("Updates", "Update delivery is planned and currently inactive.", "\uE777", "NOT ACTIVE"),
+            new("Settings", "Read-only discovery, cache, and privacy-safe diagnostics.", "\uE713", "SAFE CONTROLS")
         };
         _selectedPage = NavigationItems[0];
         RefreshCommand = new AsyncRelayCommand(() => RefreshAsync(true), () => !IsRefreshing);
@@ -147,20 +161,23 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private static readonly string[] PageVisibilityProperties =
     {
         nameof(IsDashboard), nameof(IsProgramConnectionLock), nameof(IsCompatibilityGuard), nameof(IsMeteredDataWatch),
-        nameof(IsAggressiveProgramWatch), nameof(IsDnsProtection), nameof(IsActivity), nameof(IsSettings), nameof(IsGenericPage)
+        nameof(IsAggressiveProgramWatch), nameof(IsDnsProtection), nameof(IsDnsLists), nameof(IsActivity), nameof(IsLicensing), nameof(IsSettings), nameof(IsGenericPage)
     };
 
     public bool IsDashboard => SelectedPage.IsDashboard;
     public bool IsProgramConnectionLock => SelectedPage.Title == "Program Connection Lock";
     public bool IsCompatibilityGuard => SelectedPage.Title == "Compatibility Guard";
-    public bool IsMeteredDataWatch => SelectedPage.Title == "Metered Data Watch";
+    public bool IsMeteredDataWatch => SelectedPage.Title == "Metered and Cellular Data Watch";
     public bool IsAggressiveProgramWatch => SelectedPage.Title == "Aggressive Program Watch";
     public bool IsDnsProtection => SelectedPage.Title == "DNS Protection";
+    public bool IsDnsLists => SelectedPage.Title == "Allowlist and Blocklist";
     public bool IsActivity => SelectedPage.Title == "Activity and Statistics";
+    public bool IsLicensing => SelectedPage.Title == "Licensing";
     public bool IsSettings => SelectedPage.Title == "Settings";
-    public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsActivity || IsSettings);
-    public string VersionText { get; } = "Version 0.5.0 — Controlled DNS Activation Rehearsal";
-    public string ProtectionState { get; } = "Foundation Mode / Protection Not Activated";
+    public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings);
+    public string VersionText { get; } = "Version 0.6.0 - Responsive GUI Hardening";
+    public string FoundationMode { get; } = "Foundation Mode";
+    public string ProtectionState { get; } = "Protection Not Activated";
     public string ActiveProfile { get; } = "Simulation only";
     public string SimulationBanner { get; } = PolicySimulationResult.SimulationOnlyLabel;
 
@@ -170,6 +187,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public ProgramConnectionPolicy SelectedPolicy { get => _selectedPolicy; set { if (SetField(ref _selectedPolicy, value)) UpdateSimulation(); } }
     public ProtectionMode SelectedProfileMode { get => _selectedProfileMode; set { if (SetField(ref _selectedProfileMode, value)) UpdateSimulation(); } }
     public string NetworkSummary { get => _networkSummary; private set => SetField(ref _networkSummary, value); }
+    public string NetworkTypeSummary { get => _networkTypeSummary; private set => SetField(ref _networkTypeSummary, value); }
+    public string MeteredStatusSummary { get => _meteredStatusSummary; private set => SetField(ref _meteredStatusSummary, value); }
     public string FirewallSummary { get => _firewallSummary; private set => SetField(ref _firewallSummary, value); }
     public string DnsSummary { get => _dnsSummary; private set => SetField(ref _dnsSummary, value); }
     public string ApplicationCount { get => _applicationCount; private set => SetField(ref _applicationCount, value); }
@@ -183,6 +202,15 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public string LicenseSummary { get => _licenseSummary; private set => SetField(ref _licenseSummary, value); }
     public string TraySummary { get => _traySummary; private set => SetField(ref _traySummary, value); }
     public bool IsRefreshing { get => _isRefreshing; private set { if (SetField(ref _isRefreshing, value)) RaiseCommandStates(); } }
+    public bool IsNavigationCompact
+    {
+        get => _isNavigationCompact;
+        internal set
+        {
+            if (SetField(ref _isNavigationCompact, value)) OnPropertyChanged(nameof(IsNavigationExpanded));
+        }
+    }
+    public bool IsNavigationExpanded => !IsNavigationCompact;
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
@@ -195,7 +223,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         await InitializeDnsFoundationAsync(cancellationToken).ConfigureAwait(true);
         await InitializeDnsRehearsalReadinessAsync(cancellationToken).ConfigureAwait(true);
         await RefreshAsync(false).ConfigureAwait(true);
-        LogInitialized(_logger);
+        LogInitializedMessage(_logger, null);
     }
 
     public Task RefreshAfterResumeAsync() => RefreshAsync(false);
@@ -260,6 +288,13 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         foreach (var app in bundle.Applications) _allApplications.Add(new ApplicationListItem(app));
         ApplyFilter();
         NetworkSummary = bundle.Network?.Summary ?? "Network discovery unavailable";
+        NetworkTypeSummary = bundle.Network?.PrimaryKind.ToString() ?? "Unavailable";
+        MeteredStatusSummary = bundle.Network?.Cost switch
+        {
+            ConnectionCostKind.Metered => "Metered",
+            ConnectionCostKind.Unmetered => "Not metered",
+            _ => "Unknown"
+        };
         FirewallSummary = bundle.Firewall is null ? "Firewall discovery unavailable" :
             string.Join(", ", bundle.Firewall.Profiles.Select(static item => $"{item.Profile}: {(item.Enabled ? "On" : "Off")}")) + $"; QuietShield rules: {bundle.Firewall.QuietShieldOwnedRuleCount}";
         DnsSummary = bundle.Dns is null ? "DNS discovery unavailable" :
@@ -328,6 +363,4 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     }
     private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
-    [LoggerMessage(EventId = 2003, Level = LogLevel.Information, Message = "QuietShield Phase 3 DNS simulation foundation initialized; Windows DNS and protection engines remain unchanged.")]
-    private static partial void LogInitialized(ILogger logger);
 }

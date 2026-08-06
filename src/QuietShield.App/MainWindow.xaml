@@ -3,22 +3,26 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:QuietShield.App.Controls"
+        xmlns:pages="clr-namespace:QuietShield.App.Pages"
         mc:Ignorable="d"
         Title="QuietShield Windows"
-        Width="1280"
-        Height="820"
-        MinWidth="1000"
-        MinHeight="680"
+        Width="1180"
+        Height="760"
+        MinWidth="960"
+        MinHeight="600"
         WindowStartupLocation="CenterScreen"
         UseLayoutRounding="True"
+        KeyboardNavigation.TabNavigation="Continue"
         AutomationProperties.Name="QuietShield Windows Foundation">
-    <Grid>
+    <Grid x:Name="RootLayout">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="300" />
+            <ColumnDefinition x:Name="NavigationColumn" Width="252" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0"
+        <Border x:Name="NavigationPane"
+                Grid.Column="0"
                 Background="{StaticResource NavigationBackgroundBrush}"
                 BorderBrush="{StaticResource DividerBrush}"
                 BorderThickness="0,0,1,0">
@@ -29,463 +33,106 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Margin="24,24,20,18">
-                    <TextBlock FontSize="25"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource PrimaryTextBrush}"
-                               Text="QuietShield Windows" />
-                    <TextBlock Margin="0,5,0,0"
-                               Foreground="{StaticResource SecondaryTextBrush}"
-                               Text="{Binding VersionText}" />
-                    <Border Margin="0,16,0,0"
-                            Padding="10,6"
-                            HorizontalAlignment="Left"
-                            Background="{StaticResource AccentSoftBrush}"
-                            CornerRadius="12">
-                        <TextBlock Foreground="{StaticResource AccentBrush}"
-                                   FontWeight="SemiBold"
-                                   Text="FOUNDATION MODE" />
-                    </Border>
-                </StackPanel>
+                <Grid Margin="12,14,10,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Visibility="{Binding IsNavigationExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock FontSize="20" FontWeight="SemiBold" Text="QuietShield Windows" TextWrapping="Wrap" />
+                        <TextBlock Margin="0,3,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding VersionText}" />
+                        <Border Margin="0,9,0,0" Style="{StaticResource StatusBadgeStyle}">
+                            <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Text="FOUNDATION MODE" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Grid.Column="0"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                               FontSize="24"
+                               Foreground="{StaticResource AccentBrush}"
+                               Text="&#xEA18;"
+                               ToolTip="QuietShield Windows - Foundation Mode"
+                               Visibility="{Binding IsNavigationCompact, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <Button x:Name="NavigationToggle"
+                            Grid.Column="1"
+                            Margin="6,0,0,0"
+                            Style="{StaticResource IconButtonStyle}"
+                            Click="OnNavigationToggleClick"
+                            Content="&#xE700;"
+                            ToolTip="Expand or collapse navigation"
+                            AutomationProperties.Name="Expand or collapse navigation" />
+                </Grid>
 
-                <ListBox Grid.Row="1"
+                <ListBox x:Name="NavigationList"
+                         Grid.Row="1"
                          ItemsSource="{Binding NavigationItems}"
                          SelectedItem="{Binding SelectedPage, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource NavigationItemStyle}"
                          Background="Transparent"
                          BorderThickness="0"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         IsTabStop="True"
                          KeyboardNavigation.TabNavigation="Local"
                          AutomationProperties.Name="QuietShield feature navigation">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel>
-                                <TextBlock FontSize="14"
-                                           FontWeight="SemiBold"
-                                           Text="{Binding Title}" />
-                                <TextBlock Margin="0,3,0,0"
-                                           FontSize="11"
-                                           Foreground="{StaticResource SecondaryTextBrush}"
-                                           Text="{Binding Description}"
-                                           TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
+                            <Grid ToolTip="{Binding Title}" AutomationProperties.Name="{Binding Title}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="34" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                           FontSize="18"
+                                           Foreground="{Binding RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}, Path=Foreground}"
+                                           Text="{Binding Glyph}" />
+                                <StackPanel Grid.Column="1"
+                                            Margin="5,0,0,0"
+                                            Visibility="{Binding DataContext.IsNavigationExpanded, RelativeSource={RelativeSource AncestorType={x:Type Window}}, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" />
+                                    <TextBlock Margin="0,2,0,0" FontSize="10" Foreground="{StaticResource MutedTextBrush}" Text="{Binding Description}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Description}" />
+                                </StackPanel>
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <Border Grid.Row="2"
-                        Margin="20"
-                        Padding="12"
-                        Background="#17232E"
-                        CornerRadius="8">
-                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}"
-                               FontSize="11"
-                               TextWrapping="Wrap"
-                               Text="System tray foundation present but inactive. Automatic startup is not registered." />
+                <Border Grid.Row="2" Margin="10" Padding="10" Background="{StaticResource DisabledSurfaceBrush}" CornerRadius="7">
+                    <Grid>
+                        <TextBlock FontSize="10"
+                                   Style="{StaticResource ExplanatoryTextStyle}"
+                                   Text="System tray foundation is present but inactive. Automatic startup is not registered."
+                                   Visibility="{Binding IsNavigationExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <TextBlock HorizontalAlignment="Center"
+                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                   FontSize="17"
+                                   Foreground="{StaticResource DisabledTextBrush}"
+                                   Text="&#xE7E7;"
+                                   ToolTip="System tray foundation is inactive; automatic startup is not registered."
+                                   Visibility="{Binding IsNavigationCompact, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    </Grid>
                 </Border>
             </Grid>
         </Border>
 
-        <Grid Grid.Column="1" Margin="34,28,34,24">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <StackPanel Margin="0,0,0,20">
-                <TextBlock FontSize="30"
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource PrimaryTextBrush}"
-                           Text="{Binding SelectedPage.Title}" />
-                <TextBlock Margin="0,6,0,0"
-                           FontSize="14"
-                           Foreground="{StaticResource SecondaryTextBrush}"
-                           Text="{Binding SelectedPage.Description}" />
-            </StackPanel>
-
-            <ScrollViewer Grid.Row="1"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled"
-                          Focusable="False">
+        <controls:ResponsivePageShell x:Name="PageShell"
+                                      Grid.Column="1"
+                                      Margin="24"
+                                      Title="{Binding SelectedPage.Title}"
+                                      Description="{Binding SelectedPage.Description}"
+                                      StatusText="{Binding SelectedPage.Status}">
+            <controls:ResponsivePageShell.PageContent>
                 <Grid>
-                    <StackPanel Visibility="{Binding IsDashboard, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border Margin="0,0,0,20"
-                                Padding="18"
-                                Background="{StaticResource DangerSurfaceBrush}"
-                                BorderBrush="#714348"
-                                BorderThickness="1"
-                                CornerRadius="10"
-                                AutomationProperties.Name="Protection inactive warning">
-                            <StackPanel>
-                                <TextBlock FontSize="17"
-                                           FontWeight="SemiBold"
-                                           Foreground="{StaticResource WarningBrush}"
-                                           Text="Protection engines are not active" />
-                                <TextBlock Margin="0,7,0,0"
-                                           Foreground="{StaticResource PrimaryTextBrush}"
-                                           TextWrapping="Wrap"
-                                           Text="This foundation does not change Windows Firewall, DNS, adapters, services, startup, or filtering settings." />
-                            </StackPanel>
-                        </Border>
-
-                        <UniformGrid Columns="2">
-                            <Border Style="{StaticResource CardStyle}">
-                                <StackPanel>
-                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="PROTECTION STATE" />
-                                    <TextBlock Margin="0,10,0,0"
-                                               FontSize="20"
-                                               FontWeight="SemiBold"
-                                               TextWrapping="Wrap"
-                                               Text="{Binding ProtectionState}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource CardStyle}">
-                                <StackPanel>
-                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="ACTIVE PROFILE" />
-                                    <TextBlock Margin="0,10,0,0"
-                                               FontSize="20"
-                                               FontWeight="SemiBold"
-                                               Text="{Binding ActiveProfile}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource CardStyle}">
-                                <StackPanel>
-                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="NETWORK — READ ONLY" />
-                                    <TextBlock Margin="0,10,0,0"
-                                               FontSize="18"
-                                               FontWeight="SemiBold"
-                                               TextWrapping="Wrap"
-                                               Text="{Binding NetworkSummary}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource CardStyle}">
-                                <StackPanel>
-                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="LICENCE STATE" />
-                                    <TextBlock Margin="0,10,0,0"
-                                               FontSize="18"
-                                               FontWeight="SemiBold"
-                                               TextWrapping="Wrap"
-                                               Text="{Binding LicenseSummary}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource CardStyle}">
-                                <StackPanel>
-                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="FIREWALL — READ ONLY" />
-                                    <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Text="{Binding FirewallSummary}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource CardStyle}">
-                                <StackPanel>
-                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="DNS — READ ONLY" />
-                                    <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Text="{Binding DnsSummary}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource CardStyle}">
-                                <StackPanel>
-                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="INSTALLED APPLICATIONS" />
-                                    <TextBlock Margin="0,10,0,0" FontSize="22" FontWeight="SemiBold" Text="{Binding ApplicationCount}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource CardStyle}">
-                                <StackPanel>
-                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="LAST DISCOVERY / WARNINGS" />
-                                    <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Text="{Binding LastDiscovery}" />
-                                    <TextBlock Margin="0,5,0,0" Text="{Binding WarningCount, StringFormat=Warnings: {0}}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource CardStyle}">
-                                <StackPanel>
-                                    <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="POWER — READ ONLY" />
-                                    <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Text="{Binding PowerSummary}" />
-                                </StackPanel>
-                            </Border>
-                        </UniformGrid>
-
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock FontSize="17"
-                                           FontWeight="SemiBold"
-                                           Text="Honest foundation status" />
-                                <TextBlock Margin="0,8,0,0"
-                                           Foreground="{StaticResource SecondaryTextBrush}"
-                                           TextWrapping="Wrap"
-                                           Text="No protection statistics are displayed because no protection engine is active and no validated activity data exists." />
-                                <TextBlock Margin="0,8,0,0"
-                                           Foreground="{StaticResource SecondaryTextBrush}"
-                                           TextWrapping="Wrap"
-                                           Text="{Binding TraySummary}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-
-                    <StackPanel Visibility="{Binding IsProgramConnectionLock, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border Margin="0,0,0,16" Padding="16" Background="{StaticResource AccentSoftBrush}" CornerRadius="9">
-                            <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Text="{Binding SimulationBanner}" />
-                        </Border>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="5*" />
-                                <ColumnDefinition Width="4*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Style="{StaticResource CardStyle}">
-                                <DockPanel>
-                                    <TextBox DockPanel.Dock="Top" Margin="0,0,0,12" Padding="9" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Search installed applications" />
-                                    <ListBox ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}" MaxHeight="440" AutomationProperties.Name="Read-only application inventory">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="42" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                                    <Grid Grid.Column="0">
-                                                        <TextBlock FontSize="24" Foreground="{StaticResource AccentBrush}" Text="▣" ToolTip="No extractable icon was available" />
-                                                        <Image Width="32" Height="32" Source="{Binding IconImage}" ToolTip="{Binding IconSourcePath}" />
-                                                    </Grid>
-                                                    <StackPanel Grid.Column="1">
-                                                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
-                                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding Publisher}" TextTrimming="CharacterEllipsis" />
-                                                        <TextBlock FontSize="11" Foreground="{StaticResource SecondaryTextBrush}">
-                                                            <Run Text="{Binding Version, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{Binding ApplicationType, Mode=OneWay}" />
-                                                        </TextBlock>
-                                                    </StackPanel>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
-                                </DockPanel>
-                            </Border>
-                            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="0,0,0,16">
-                                <StackPanel>
-                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="Local policy simulator" />
-                                    <TextBlock Margin="0,14,0,4" Text="Connection type" />
-                                    <ComboBox ItemsSource="{Binding ConnectionTypes}" SelectedItem="{Binding SelectedConnectionType}" />
-                                    <TextBlock Margin="0,14,0,4" Text="Protection profile" />
-                                    <ComboBox ItemsSource="{Binding ProfileModes}" SelectedItem="{Binding SelectedProfileMode}" />
-                                    <TextBlock Margin="0,14,0,4" Text="Program connection policy" />
-                                    <ComboBox ItemsSource="{Binding ProgramPolicies}" SelectedItem="{Binding SelectedPolicy}" />
-                                    <TextBlock Margin="0,20,0,0" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Text="{Binding SimulationDecision}" TextWrapping="Wrap" />
-                                    <TextBlock Margin="0,8,0,0" Text="{Binding SimulationReason}" TextWrapping="Wrap" />
-                                    <TextBlock Margin="0,18,0,0" Foreground="{StaticResource WarningBrush}" Text="There is intentionally no Apply or Enforce button." TextWrapping="Wrap" />
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-                    </StackPanel>
-
-                    <StackPanel Visibility="{Binding IsCompatibilityGuard, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border Style="{StaticResource CardStyle}" Margin="0"><StackPanel><TextBlock FontSize="22" FontWeight="SemiBold" Text="Simulated exclusions only" /><TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Text="Compatibility exclusions can be evaluated by the local policy simulator. No Windows rule, process, service, adapter, firewall, or DNS setting is changed." /></StackPanel></Border>
-                    </StackPanel>
-
-                    <StackPanel Visibility="{Binding IsMeteredDataWatch, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border Style="{StaticResource CardStyle}" Margin="0"><StackPanel><TextBlock FontSize="22" FontWeight="SemiBold" Text="Current metered status" /><TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Text="{Binding NetworkSummary}" /><TextBlock Margin="0,10,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="Traffic accounting is not implemented and no network cost setting is changed." /></StackPanel></Border>
-                    </StackPanel>
-
-                    <StackPanel Visibility="{Binding IsAggressiveProgramWatch, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border Style="{StaticResource CardStyle}" Margin="0"><StackPanel><TextBlock FontSize="22" FontWeight="SemiBold" Text="Not active — monitoring engine not implemented" /><TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Text="No process monitoring, packet capture, or traffic inspection occurs in this phase." /></StackPanel></Border>
-                    </StackPanel>
-
-                    <StackPanel Visibility="{Binding IsDnsProtection, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border Margin="0,0,0,16" Padding="16" Background="{StaticResource AccentSoftBrush}" CornerRadius="9">
-                            <StackPanel>
-                                <TextBlock FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Text="QuietShield DNS Protection: Simulation Only" />
-                                <TextBlock Margin="0,7,0,0" FontWeight="SemiBold" Text="{Binding DnsEnforcementBanner}" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Current detected DNS configuration" />
-                                <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Text="{Binding DnsSummary}" />
-                                <TextBlock Margin="0,8,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="This is read-only adapter information. QuietShield does not intercept or redirect DNS." TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Test a domain locally" />
-                                <Grid Margin="0,14,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                    <TextBox Grid.Column="0" Margin="0,0,10,0" Padding="9" Text="{Binding DnsTestDomain, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="DNS test domain" />
-                                    <ComboBox Grid.Column="1" Margin="0,0,10,0" ItemsSource="{Binding DnsProtectionModes}" SelectedItem="{Binding SelectedDnsProtectionMode}" AutomationProperties.Name="DNS protection simulation mode" />
-                                    <Button Grid.Column="2" Padding="16,8" Command="{Binding SimulateDnsCommand}" Content="Simulate" />
-                                </Grid>
-                                <UniformGrid Margin="0,18,0,0" Columns="2">
-                                    <StackPanel Margin="0,0,20,12"><TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="DECISION" /><TextBlock Margin="0,5,0,0" FontSize="18" FontWeight="SemiBold" Text="{Binding DnsDecision}" TextWrapping="Wrap" /></StackPanel>
-                                    <StackPanel Margin="0,0,20,12"><TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="CATEGORY" /><TextBlock Margin="0,5,0,0" FontSize="18" FontWeight="SemiBold" Text="{Binding DnsCategory}" /></StackPanel>
-                                    <StackPanel Margin="0,0,20,12"><TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="MATCHED RULE" /><TextBlock Margin="0,5,0,0" Text="{Binding DnsMatchedRule}" TextWrapping="Wrap" /></StackPanel>
-                                    <StackPanel Margin="0,0,20,12"><TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="REASON" /><TextBlock Margin="0,5,0,0" Text="{Binding DnsReason}" TextWrapping="Wrap" /></StackPanel>
-                                </UniformGrid>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Runtime and transaction readiness" />
-                                <Grid Margin="0,12,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="RUNTIME STATUS" />
-                                        <TextBlock Margin="0,4,0,10" Text="{Binding DnsRuntimeStatus}" TextWrapping="Wrap" />
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="SIMULATION STATUS" />
-                                        <TextBlock Margin="0,4,0,10" Text="{Binding DnsSimulationStatus}" TextWrapping="Wrap" />
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="UPSTREAM HEALTH" />
-                                        <TextBlock Margin="0,4,0,10" Text="{Binding DnsUpstreamHealthStatus}" TextWrapping="Wrap" />
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="TRANSACTION READINESS" />
-                                        <TextBlock Margin="0,4,0,10" Text="{Binding DnsTransactionReadiness}" TextWrapping="Wrap" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="ORIGINAL DNS BACKUP" />
-                                        <TextBlock Margin="0,4,0,10" Text="{Binding OriginalDnsBackupStatus}" TextWrapping="Wrap" />
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="LAST-KNOWN-GOOD DNS" />
-                                        <TextBlock Margin="0,4,0,10" Text="{Binding DnsConfigurationLastKnownGoodStatus}" TextWrapping="Wrap" />
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="EMERGENCY RECOVERY" />
-                                        <TextBlock Margin="0,4,0,12" Text="{Binding EmergencyRecoveryStatus}" TextWrapping="Wrap" />
-                                        <WrapPanel>
-                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding TestLocalDnsRuntimeCommand}" Content="Test local resolver" />
-                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding PreviewDnsActivationPlanCommand}" Content="Preview activation plan" />
-                                        </WrapPanel>
-                                        <TextBlock Margin="0,4,0,0" Foreground="{StaticResource WarningBrush}" Text="No Activate control is available in this phase." TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Controlled activation rehearsal readiness" />
-                                <Border Margin="0,12,0,14" Padding="12" Background="{StaticResource AccentSoftBrush}" CornerRadius="7">
-                                    <TextBlock Foreground="{StaticResource AccentBrush}"
-                                               FontWeight="SemiBold"
-                                               Text="Temporary rehearsal only. Original DNS will be restored automatically."
-                                               TextWrapping="Wrap" />
-                                </Border>
-                                <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Margin="0,0,18,0">
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="ACTIVATION REHEARSAL READINESS" />
-                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalReadiness}" TextWrapping="Wrap" />
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="ACTIVE ADAPTER" />
-                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalActiveAdapter}" TextWrapping="Wrap" />
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="PORT 53 AVAILABILITY" />
-                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalPort53}" TextWrapping="Wrap" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="ORIGINAL DNS BACKUP STATUS" />
-                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalBackup}" TextWrapping="Wrap" />
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="WATCHDOG READINESS" />
-                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalWatchdog}" TextWrapping="Wrap" />
-                                        <TextBlock Foreground="{StaticResource SecondaryTextBrush}" Text="LAST REHEARSAL RESULT" />
-                                        <TextBlock Margin="0,4,0,12" Text="{Binding DnsRehearsalLastResult}" TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Grid>
-                                <TextBlock Margin="0,4,0,0"
-                                           Foreground="{StaticResource WarningBrush}"
-                                           Text="No permanent Activate control is provided. The rehearsal runs only from the explicit elevated command."
-                                           TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Protection-list status" />
-                                <TextBlock Margin="0,9,0,0" Text="{Binding ProtectionListStatus}" TextWrapping="Wrap" />
-                                <TextBlock Margin="0,7,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding LastKnownGoodListStatus}" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource CardStyle}" Margin="0">
-                            <StackPanel>
-                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Custom allowlist and blocklist — simulation only" />
-                                <TextBox Margin="0,12,0,12" Padding="9" Text="{Binding CustomDnsSearch, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Search custom DNS entries" />
-                                <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="5*" /><ColumnDefinition Width="4*" /></Grid.ColumnDefinitions>
-                                    <ListBox Grid.Column="0" Margin="0,0,16,0" ItemsSource="{Binding CustomDnsEntries}" SelectedItem="{Binding SelectedCustomDnsEntry}" MinHeight="220" MaxHeight="360">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <StackPanel>
-                                                    <TextBlock FontWeight="SemiBold" Text="{Binding DomainPattern}" />
-                                                    <TextBlock FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding ListKind}" />
-                                                    <TextBlock FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding MatchKind}" />
-                                                    <TextBlock FontSize="11" Foreground="{StaticResource WarningBrush}" Text="Parent protected" Visibility="{Binding ParentProtected, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                                                </StackPanel>
-                                            </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Domain or safe wildcard" />
-                                        <TextBox Margin="0,5,0,10" Padding="8" Text="{Binding CustomDnsDomain, UpdateSourceTrigger=PropertyChanged}" />
-                                        <TextBlock Text="List" />
-                                        <ComboBox Margin="0,5,0,10" ItemsSource="{Binding CustomDomainListKinds}" SelectedItem="{Binding SelectedCustomListKind}" />
-                                        <TextBlock Text="Matching" />
-                                        <ComboBox Margin="0,5,0,10" ItemsSource="{Binding DnsRuleMatchKinds}" SelectedItem="{Binding SelectedCustomMatchKind}" />
-                                        <TextBlock Text="Notes" />
-                                        <TextBox Margin="0,5,0,10" Padding="8" MaxLength="500" Text="{Binding CustomDnsNotes, UpdateSourceTrigger=PropertyChanged}" />
-                                        <CheckBox Margin="0,2,0,12" IsChecked="{Binding CustomDnsParentProtected}" Content="Parent protected" />
-                                        <WrapPanel>
-                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding AddCustomDnsCommand}" Content="Add" />
-                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding EditCustomDnsCommand}" Content="Edit selected" />
-                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding RemoveCustomDnsCommand}" Content="Remove selected" />
-                                            <Button Margin="0,0,8,8" Padding="12,7" Command="{Binding ClearDnsDecisionCacheCommand}" Content="Clear decision cache" />
-                                        </WrapPanel>
-                                    </StackPanel>
-                                </Grid>
-                                <TextBlock Margin="0,12,0,0" Text="{Binding CustomDnsStatus}" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-
-                    <StackPanel Visibility="{Binding IsActivity, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border Style="{StaticResource CardStyle}" Margin="0"><StackPanel><TextBlock FontSize="22" FontWeight="SemiBold" Text="Discovery activity" /><TextBlock Margin="0,12,0,0" Text="{Binding ActivitySummary}" TextWrapping="Wrap" /><TextBlock Margin="0,14,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="No ads-blocked, tracker, threat, bandwidth, or data-saved statistics are fabricated." TextWrapping="Wrap" /></StackPanel></Border>
-                    </StackPanel>
-
-                    <StackPanel Visibility="{Binding IsSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border Style="{StaticResource CardStyle}" Margin="0">
-                            <StackPanel>
-                                <TextBlock FontSize="22" FontWeight="SemiBold" Text="Read-only discovery controls" />
-                                <WrapPanel Margin="0,16,0,0">
-                                    <Button Margin="0,0,10,10" Padding="14,8" Command="{Binding RefreshCommand}" Content="Refresh discovery" />
-                                    <Button Margin="0,0,10,10" Padding="14,8" Command="{Binding CancelCommand}" Content="Cancel" />
-                                    <Button Margin="0,0,10,10" Padding="14,8" Command="{Binding ClearCacheCommand}" Content="Clear safe cache" />
-                                    <Button Margin="0,0,10,10" Padding="14,8" Command="{Binding ExportDiagnosticsCommand}" Content="Export privacy-safe diagnostic" />
-                                </WrapPanel>
-                                <TextBlock Margin="0,10,0,0" Text="{Binding LastActionStatus}" TextWrapping="Wrap" />
-                                <TextBlock Margin="0,10,0,0" Foreground="{StaticResource SecondaryTextBrush}" Text="Export occurs only when you press the button and excludes usernames, addresses, MACs, SSIDs, credentials, tokens, and command lines." TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-
-                    <StackPanel Visibility="{Binding IsGenericPage, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Border Style="{StaticResource CardStyle}" Margin="0">
-                            <StackPanel>
-                                <TextBlock FontSize="22"
-                                           FontWeight="SemiBold"
-                                           Text="Foundation placeholder" />
-                                <TextBlock Margin="0,12,0,0"
-                                           FontSize="15"
-                                           Foreground="{StaticResource SecondaryTextBrush}"
-                                           TextWrapping="Wrap"
-                                           Text="{Binding SelectedPage.Description}" />
-                                <Border Margin="0,22,0,0"
-                                        Padding="14"
-                                        Background="{StaticResource AccentSoftBrush}"
-                                        CornerRadius="8">
-                                    <TextBlock Foreground="{StaticResource AccentBrush}"
-                                               TextWrapping="Wrap"
-                                               Text="This feature is intentionally inactive. Its implementation requires a separately reviewed phase with explicit safety, backup, verification, rollback, and recovery design." />
-                                </Border>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
+                    <pages:DashboardPage Visibility="{Binding IsDashboard, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <pages:ProgramConnectionLockPage Visibility="{Binding IsProgramConnectionLock, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <pages:DnsProtectionPage Visibility="{Binding IsDnsProtection, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <pages:DnsListsPage Visibility="{Binding IsDnsLists, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <pages:FoundationStatusPages />
                 </Grid>
-            </ScrollViewer>
-
-            <Border Grid.Row="2"
-                    Margin="0,18,0,0"
-                    Padding="14,10"
-                    Background="{StaticResource SurfaceRaisedBrush}"
-                    CornerRadius="8">
-                <TextBlock Foreground="{StaticResource SecondaryTextBrush}"
-                           TextWrapping="Wrap"
-                           Text="Safety boundary: QuietShield is currently a read-only application foundation. No Windows network or security setting is changed." />
-            </Border>
-        </Grid>
+            </controls:ResponsivePageShell.PageContent>
+        </controls:ResponsivePageShell>
     </Grid>
 </Window>

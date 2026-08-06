@@ -1,0 +1,97 @@
+<UserControl x:Class="QuietShield.App.Pages.DnsProtectionPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:QuietShield.App.Controls"
+             Focusable="False">
+    <StackPanel>
+        <Border Style="{StaticResource WarningBannerStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource WarningBrush}" Text="DNS activation remains blocked" />
+                <TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsEnforcementBanner}" />
+                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Permanent activation and service registration are prohibited until separate-process UDP and TCP loopback probes pass." />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource SectionCardStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Current detected DNS configuration" />
+                <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsSummary}" />
+                <TextBlock Margin="0,6,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="This is read-only adapter information. QuietShield Windows does not intercept or redirect DNS." />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource SectionCardStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Test a domain locally" />
+                <WrapPanel Margin="0,11,0,0" KeyboardNavigation.TabNavigation="Local">
+                    <StackPanel MinWidth="250" Margin="0,0,10,10">
+                        <TextBlock Margin="0,0,0,4" Style="{StaticResource ExplanatoryTextStyle}" Text="Domain" />
+                        <TextBox Text="{Binding DnsTestDomain, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="DNS test domain" />
+                    </StackPanel>
+                    <StackPanel MinWidth="210" Margin="0,0,10,10">
+                        <TextBlock Margin="0,0,0,4" Style="{StaticResource ExplanatoryTextStyle}" Text="Simulation mode" />
+                        <ComboBox ItemsSource="{Binding DnsProtectionModes}" SelectedItem="{Binding SelectedDnsProtectionMode}" AutomationProperties.Name="DNS protection simulation mode" />
+                    </StackPanel>
+                    <Button Margin="0,21,8,10" Command="{Binding SimulateDnsCommand}" Content="_Simulate" AutomationProperties.Name="Simulate DNS policy" />
+                </WrapPanel>
+                <controls:AdaptiveGridPanel ItemMinWidth="210" MaximumColumns="2" Spacing="12">
+                    <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="DECISION" /><TextBlock Margin="0,5,0,0" Style="{StaticResource SectionTitleStyle}" Text="{Binding DnsDecision}" /></StackPanel></Border>
+                    <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="CATEGORY" /><TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsCategory}" /></StackPanel></Border>
+                    <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="MATCHED RULE" /><TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsMatchedRule}" /></StackPanel></Border>
+                    <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="REASON" /><TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsReason}" /></StackPanel></Border>
+                </controls:AdaptiveGridPanel>
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource SectionCardStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Runtime and transaction readiness" />
+                <controls:AdaptiveGridPanel Margin="0,10,0,0" ItemMinWidth="300" MaximumColumns="2" Spacing="14">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="RUNTIME STATUS" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsRuntimeStatus}" />
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="SIMULATION STATUS" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsSimulationStatus}" />
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="UPSTREAM HEALTH" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsUpstreamHealthStatus}" />
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="TRANSACTION READINESS" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsTransactionReadiness}" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="ORIGINAL DNS BACKUP" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding OriginalDnsBackupStatus}" />
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="LAST-KNOWN-GOOD DNS" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsConfigurationLastKnownGoodStatus}" />
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="EMERGENCY RECOVERY" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding EmergencyRecoveryStatus}" />
+                        <WrapPanel KeyboardNavigation.TabNavigation="Local">
+                            <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding TestLocalDnsRuntimeCommand}" Content="Test local _resolver" />
+                            <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding PreviewDnsActivationPlanCommand}" Content="_Preview activation plan" />
+                        </WrapPanel>
+                        <TextBlock Margin="0,4,0,0" Style="{StaticResource ExplanatoryTextStyle}" Foreground="{StaticResource WarningBrush}" Text="No Activate control is available." />
+                    </StackPanel>
+                </controls:AdaptiveGridPanel>
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource SectionCardStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Blocked rehearsal milestone" />
+                <controls:AdaptiveGridPanel Margin="0,10,0,0" ItemMinWidth="280" MaximumColumns="2" Spacing="14">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="READINESS" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsRehearsalReadiness}" />
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="ACTIVE ADAPTER" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsRehearsalActiveAdapter}" />
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="PORT 53" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsRehearsalPort53}" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="BACKUP" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsRehearsalBackup}" />
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="WATCHDOG" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsRehearsalWatchdog}" />
+                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="LAST RESULT" /><TextBlock Margin="0,3,0,9" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsRehearsalLastResult}" />
+                    </StackPanel>
+                </controls:AdaptiveGridPanel>
+                <TextBlock Margin="0,8,0,0" Style="{StaticResource ExplanatoryTextStyle}" Foreground="{StaticResource WarningBrush}" Text="Real DNS activation remains unvalidated and disabled. No rehearsal launcher is exposed in the GUI." />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Protection-list status" />
+                <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding ProtectionListStatus}" />
+                <TextBlock Margin="0,6,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding LastKnownGoodListStatus}" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

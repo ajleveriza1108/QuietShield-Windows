@@ -11,5 +11,7 @@
     <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
     <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
     <MSBuildProjectExtensionsPath>$(MSBuildThisFileDirectory)artifacts\obj\$(MSBuildProjectName)\</MSBuildProjectExtensionsPath>
+    <BaseIntermediateOutputPath Condition="$([System.String]::Copy('$(MSBuildProjectName)').EndsWith('_wpftmp'))">$(MSBuildThisFileDirectory)artifacts\obj\QuietShield.App\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath Condition="$([System.String]::Copy('$(MSBuildProjectName)').EndsWith('_wpftmp'))">$(MSBuildThisFileDirectory)artifacts\obj\QuietShield.App\</MSBuildProjectExtensionsPath>
   </PropertyGroup>
 </Project>

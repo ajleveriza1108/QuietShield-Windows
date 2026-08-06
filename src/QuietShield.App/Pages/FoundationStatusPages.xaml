@@ -1,0 +1,57 @@
+<UserControl x:Class="QuietShield.App.Pages.FoundationStatusPages"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Focusable="False">
+    <Grid>
+        <StackPanel Visibility="{Binding IsCompatibilityGuard, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Simulated exclusions only" /><TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="Compatibility exclusions can be evaluated by the local policy simulator. No Windows rule, process, service, adapter, Firewall, or DNS setting is changed." /></StackPanel></Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsMeteredDataWatch, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Metered and Cellular Data Watch" /><TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding NetworkSummary}" /><TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Traffic accounting is not implemented, and no network cost setting is changed." /></StackPanel></Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsAggressiveProgramWatch, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource DisabledBannerStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Aggressive Program Watch is not active" /><TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="No process monitoring, packet capture, or traffic inspection occurs in this phase." /></StackPanel></Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsActivity, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Discovery activity" /><TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding ActivitySummary}" /><TextBlock Margin="0,9,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="No blocked-ad, tracker, threat, bandwidth, or data-saved statistics are fabricated." /></StackPanel></Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsLicensing, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Licensing foundation" /><TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding LicenseSummary}" /><TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="No purchase, sign-in, licence-key entry, or online activation control is implemented in this phase." /></StackPanel></Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Read-only discovery controls" />
+                    <WrapPanel Margin="0,11,0,0" KeyboardNavigation.TabNavigation="Local">
+                        <Button Margin="0,0,8,8" Command="{Binding RefreshCommand}" Content="_Refresh discovery" />
+                        <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CancelCommand}" Content="_Cancel" />
+                        <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ClearCacheCommand}" Content="_Clear safe cache" />
+                        <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ExportDiagnosticsCommand}" Content="_Export privacy-safe diagnostic" />
+                    </WrapPanel>
+                    <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding LastActionStatus}" />
+                    <TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Export occurs only when requested and excludes usernames, addresses, MACs, SSIDs, credentials, tokens, and command lines." />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsGenericPage, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Planned feature" />
+                    <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding SelectedPage.Description}" />
+                    <Border Margin="0,12,0,0" Style="{StaticResource DisabledBannerStyle}">
+                        <StackPanel>
+                            <TextBlock FontWeight="SemiBold" Foreground="{StaticResource WarningBrush}" Text="Not yet active" />
+                            <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Implementation requires a separately reviewed phase with explicit safety, validation, rollback, and recovery design. No unavailable control is presented as active." />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -1,0 +1,66 @@
+<UserControl x:Class="QuietShield.App.Pages.ProgramConnectionLockPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:QuietShield.App.Controls"
+             Focusable="False">
+    <StackPanel>
+        <Border Style="{StaticResource InformationBannerStyle}">
+            <TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding SimulationBanner}" />
+        </Border>
+        <controls:AdaptiveGridPanel ItemMinWidth="330" MaximumColumns="2" Spacing="14">
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Application inventory" />
+                    <Label Margin="0,9,0,3" Padding="0" Foreground="{StaticResource SecondaryTextBrush}" Content="_Search applications" Target="{Binding ElementName=ApplicationSearchBox}" />
+                    <TextBox x:Name="ApplicationSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Search installed applications" />
+                    <Grid Margin="0,10,0,0">
+                        <ListView x:Name="ApplicationInventoryList"
+                                  MinHeight="220"
+                                  MaxHeight="390"
+                                  ItemsSource="{Binding Applications}"
+                                  SelectedItem="{Binding SelectedApplication}"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  VirtualizingPanel.ScrollUnit="Pixel"
+                                  IsTabStop="True"
+                                  AutomationProperties.Name="Read-only application inventory">
+                            <ListView.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListView.ItemsPanel>
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid MinHeight="46">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <Grid VerticalAlignment="Center">
+                                            <TextBlock HorizontalAlignment="Center" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="20" Foreground="{StaticResource AccentBrush}" Text="&#xE7B8;" ToolTip="No extractable icon was available" />
+                                            <Image Width="28" Height="28" Source="{Binding IconImage}" ToolTip="{Binding IconSourcePath}" />
+                                        </Grid>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontWeight="SemiBold" Text="{Binding DisplayName}" ToolTip="{Binding DisplayName}" />
+                                            <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding Publisher}" ToolTip="{Binding Publisher}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Margin="18" Style="{StaticResource ExplanatoryTextStyle}" Text="No matching applications were found." Visibility="{Binding Applications, Converter={StaticResource EmptyCollectionToVisibilityConverter}}" IsHitTestVisible="False" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Local policy simulator" />
+                    <TextBlock Margin="0,11,0,4" Style="{StaticResource ExplanatoryTextStyle}" Text="Connection type" />
+                    <ComboBox ItemsSource="{Binding ConnectionTypes}" SelectedItem="{Binding SelectedConnectionType}" AutomationProperties.Name="Connection type" />
+                    <TextBlock Margin="0,11,0,4" Style="{StaticResource ExplanatoryTextStyle}" Text="Protection profile" />
+                    <ComboBox ItemsSource="{Binding ProfileModes}" SelectedItem="{Binding SelectedProfileMode}" AutomationProperties.Name="Protection profile" />
+                    <TextBlock Margin="0,11,0,4" Style="{StaticResource ExplanatoryTextStyle}" Text="Program connection policy" />
+                    <ComboBox ItemsSource="{Binding ProgramPolicies}" SelectedItem="{Binding SelectedPolicy}" AutomationProperties.Name="Program connection policy" />
+                    <TextBlock Margin="0,15,0,0" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource AccentBrush}" Text="{Binding SimulationDecision}" />
+                    <TextBlock Margin="0,6,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding SimulationReason}" />
+                    <TextBlock Margin="0,12,0,0" Style="{StaticResource ExplanatoryTextStyle}" Foreground="{StaticResource WarningBrush}" Text="There is intentionally no Apply or Enforce button." />
+                </StackPanel>
+            </Border>
+        </controls:AdaptiveGridPanel>
+    </StackPanel>
+</UserControl>

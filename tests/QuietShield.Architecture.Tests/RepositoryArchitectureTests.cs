@@ -495,13 +495,151 @@ public sealed class RepositoryArchitectureTests
             }
         }
 
-        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "MainWindow.xaml"));
+        var xaml = string.Join(Environment.NewLine,
+            Directory.EnumerateFiles(Path.Combine(RepositoryRoot, "src", "QuietShield.App"), "*.xaml", SearchOption.AllDirectories)
+                .Select(File.ReadAllText));
         Assert.IsFalse(xaml.Contains("Content=\"Activate\"", StringComparison.OrdinalIgnoreCase));
         StringAssert.Contains(xaml, "Preview activation plan");
 
         var serviceProgram = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Service", "Program.cs"));
         Assert.IsFalse(serviceProgram.Contains("DnsRuntimeServiceCoordinator", StringComparison.Ordinal));
         Assert.IsFalse(serviceProgram.Contains("UseWindowsService", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void Phase6ShellUsesSharedResponsiveResourcesWithoutCanvasOrPositioningTricks()
+    {
+        var appDirectory = Path.Combine(RepositoryRoot, "src", "QuietShield.App");
+        var mainWindow = File.ReadAllText(Path.Combine(appDirectory, "MainWindow.xaml"));
+        var shell = File.ReadAllText(Path.Combine(appDirectory, "Controls", "ResponsivePageShell.xaml"));
+        var allXaml = string.Join(Environment.NewLine,
+            Directory.EnumerateFiles(appDirectory, "*.xaml", SearchOption.AllDirectories).Select(File.ReadAllText));
+
+        StringAssert.Contains(mainWindow, "controls:ResponsivePageShell");
+        StringAssert.Contains(mainWindow, "MinWidth=\"960\"");
+        StringAssert.Contains(mainWindow, "MinHeight=\"600\"");
+        StringAssert.Contains(shell, "HorizontalScrollBarVisibility=\"Disabled\"");
+        StringAssert.Contains(shell, "VerticalScrollBarVisibility=\"Auto\"");
+        Assert.IsFalse(allXaml.Contains("<Canvas", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(allXaml, "Margin=\\\"\\s*-", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+    }
+
+    [TestMethod]
+    public void SharedThemeCoversRequiredControlAndStateStyles()
+    {
+        var theme = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Themes", "Controls.xaml"));
+        foreach (var required in new[]
+        {
+            "PageTitleStyle", "SectionTitleStyle", "BodyTextStyle", "ExplanatoryTextStyle",
+            "StatusBannerStyle", "CardStyle", "IconButtonStyle", "NavigationItemStyle",
+            "DialogWindowStyle", "WarningBannerStyle", "SuccessBannerStyle", "InformationBannerStyle",
+            "DisabledBannerStyle", "TargetType=\"Button\"", "TargetType=\"TextBox\"",
+            "TargetType=\"ComboBox\"", "TargetType=\"ToggleButton\"", "TargetType=\"CheckBox\"",
+            "TargetType=\"ListView\"", "TargetType=\"DataGrid\"", "TargetType=\"TabControl\"",
+            "TargetType=\"ToolTip\""
+        })
+        {
+            StringAssert.Contains(theme, required);
+        }
+    }
+
+    [TestMethod]
+    public void EveryPlannedPhase6PageIsPresentWithConsistentTerminology()
+    {
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "ViewModels", "Phase2MainViewModel.cs"));
+        foreach (var title in new[]
+        {
+            "Dashboard", "Protection", "Program Connection Lock", "Protection Profiles", "Schedules",
+            "Metered and Cellular Data Watch", "Aggressive Program Watch", "Compatibility Guard",
+            "DNS Protection", "Allowlist and Blocklist", "Activity and Statistics", "Parent and Child Controls",
+            "Private Browser", "File Safety", "Licensing", "Updates", "Settings"
+        })
+        {
+            StringAssert.Contains(source, $"new(\"{title}\"");
+        }
+        Assert.IsFalse(source.Contains("Android", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void InventoryAndFutureTablesUseVirtualizationAndLongTextAffordances()
+    {
+        var appDirectory = Path.Combine(RepositoryRoot, "src", "QuietShield.App");
+        var inventory = File.ReadAllText(Path.Combine(appDirectory, "Pages", "ProgramConnectionLockPage.xaml"));
+        var theme = File.ReadAllText(Path.Combine(appDirectory, "Themes", "Controls.xaml"));
+
+        foreach (var required in new[]
+        {
+            "VirtualizingPanel.IsVirtualizing=\"True\"", "VirtualizingPanel.VirtualizationMode=\"Recycling\"",
+            "VirtualizingStackPanel", "TrimmedValueTextStyle", "ToolTip=\"{Binding DisplayName}\"",
+            "ToolTip=\"{Binding Publisher}\"", "No matching applications were found."
+        })
+        {
+            StringAssert.Contains(inventory, required);
+        }
+        StringAssert.Contains(theme, "EnableRowVirtualization");
+        StringAssert.Contains(theme, "EnableColumnVirtualization");
+        StringAssert.Contains(theme, "Property=\"TextTrimming\" Value=\"CharacterEllipsis\"");
+    }
+
+    [TestMethod]
+    public void DpiWindowPlacementAndDialogConstraintsAreDeclaredWithoutRegistryStorage()
+    {
+        var appDirectory = Path.Combine(RepositoryRoot, "src", "QuietShield.App");
+        var manifest = File.ReadAllText(Path.Combine(appDirectory, "app.manifest"));
+        var placement = File.ReadAllText(Path.Combine(appDirectory, "Windowing", "WindowPlacementServices.cs"));
+
+        StringAssert.Contains(manifest, "PerMonitorV2");
+        StringAssert.Contains(placement, "ConstrainWindowPlacement");
+        StringAssert.Contains(placement, "ConstrainDialogSize");
+        StringAssert.Contains(placement, "EnumDisplayMonitors");
+        StringAssert.Contains(placement, "GetWindowPlacement");
+        StringAssert.Contains(placement, "SetWindowPlacement");
+        Assert.IsFalse(placement.Contains("Registry", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void Phase6GuiSmokeCoversResolutionsScalingLongTextKeyboardAndAllPages()
+    {
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Phase6GuiValidator.cs"));
+        foreach (var required in new[]
+        {
+            "(1024d, 640d)", "(1366d, 768d)", "(1920d, 1080d)",
+            "100, 125, 150, 200", "WindowState.Maximized", "ApplyPhase6LongTextScenario",
+            "ValidateKeyboardReachability", "ScrollableWidth", "InventoryVirtualized", "UiResponsive"
+        })
+        {
+            StringAssert.Contains(source, required);
+        }
+    }
+
+    [TestMethod]
+    public void Phase5BlockedRestrictionsRemainVisibleAcrossTheHardenedGui()
+    {
+        var appDirectory = Path.Combine(RepositoryRoot, "src", "QuietShield.App");
+        var allXaml = string.Join(Environment.NewLine,
+            Directory.EnumerateFiles(appDirectory, "*.xaml", SearchOption.AllDirectories).Select(File.ReadAllText));
+        var dns = File.ReadAllText(Path.Combine(appDirectory, "Pages", "DnsProtectionPage.xaml"));
+
+        StringAssert.Contains(dns, "DNS activation remains blocked");
+        StringAssert.Contains(dns, "Permanent activation and service registration are prohibited");
+        StringAssert.Contains(dns, "Real DNS activation remains unvalidated and disabled");
+        Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(allXaml, "Content=\\\"_?Activate\\\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+    }
+
+    [TestMethod]
+    public void ActionGroupsWrapAndInactiveStatesUseExplicitTextBanners()
+    {
+        var pages = Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages");
+        var dns = File.ReadAllText(Path.Combine(pages, "DnsProtectionPage.xaml"));
+        var lists = File.ReadAllText(Path.Combine(pages, "DnsListsPage.xaml"));
+        var foundation = File.ReadAllText(Path.Combine(pages, "FoundationStatusPages.xaml"));
+
+        StringAssert.Contains(dns, "<WrapPanel");
+        StringAssert.Contains(lists, "<WrapPanel");
+        StringAssert.Contains(foundation, "<WrapPanel");
+        StringAssert.Contains(dns, "activation remains blocked");
+        StringAssert.Contains(lists, "simulation only");
+        StringAssert.Contains(foundation, "Not yet active");
     }
 
     private static string FindRepositoryRoot()

@@ -1,0 +1,54 @@
+<UserControl x:Class="QuietShield.App.Pages.DashboardPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:QuietShield.App.Controls"
+             Focusable="False">
+    <StackPanel>
+        <Border Style="{StaticResource WarningBannerStyle}" AutomationProperties.Name="Protection inactive warning">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource WarningBrush}" Text="Protection is not activated" />
+                <TextBlock Margin="0,5,0,0"
+                           Style="{StaticResource BodyTextStyle}"
+                           Text="QuietShield Windows does not change Firewall, DNS, adapters, services, startup, or filtering settings in this foundation milestone." />
+            </StackPanel>
+        </Border>
+
+        <controls:AdaptiveGridPanel x:Name="DashboardCardPanel" ItemMinWidth="230" MaximumColumns="3" Spacing="12">
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="FOUNDATION" /><TextBlock Margin="0,7,0,0" Style="{StaticResource SectionTitleStyle}" Text="{Binding FoundationMode}" /></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="PROTECTION" /><TextBlock Margin="0,7,0,0" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource WarningBrush}" Text="{Binding ProtectionState}" /></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="NETWORK TYPE" /><TextBlock Margin="0,7,0,0" Style="{StaticResource SectionTitleStyle}" Text="{Binding NetworkTypeSummary}" /></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="METERED STATUS" /><TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding MeteredStatusSummary}" /></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="FIREWALL - READ ONLY" /><TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding FirewallSummary}" /></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="DNS - READ ONLY" /><TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding DnsSummary}" /></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="DISCOVERED APPLICATIONS" /><TextBlock Margin="0,7,0,0" FontSize="22" FontWeight="SemiBold" Text="{Binding ApplicationCount}" /></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="LAST DISCOVERY" /><TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding LastDiscovery}" /></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel><TextBlock Style="{StaticResource EyebrowTextStyle}" Text="WARNINGS" /><TextBlock Margin="0,7,0,0" FontSize="22" FontWeight="SemiBold" Text="{Binding WarningCount}" /></StackPanel>
+            </Border>
+        </controls:AdaptiveGridPanel>
+
+        <Border Margin="0,14,0,0" Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Honest foundation status" />
+                <TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="No blocked-ad, tracker, threat, bandwidth, or data-saved statistics are shown because no validated activity source exists." />
+                <TextBlock Margin="0,6,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding TraySummary}" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
