@@ -9,6 +9,7 @@ using QuietShield.Core.ConnectionLock;
 using QuietShield.Core.Dns;
 using QuietShield.Core.Protection;
 using QuietShield.Core.Simulation;
+using QuietShield.Core.ServiceFoundation;
 using QuietShield.Licensing;
 using QuietShield.Windows.Diagnostics;
 using QuietShield.Windows.Dns;
@@ -58,6 +59,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly ILocalDnsRuntimeDiagnostic _dnsRuntimeDiagnostic;
     private readonly IDnsRehearsalReadinessDiscovery _dnsRehearsalReadinessDiscovery;
     private readonly ILogger<MainViewModel> _logger;
+    private readonly IQuietShieldServiceClient _serviceClient;
     private readonly ObservableCollection<ApplicationListItem> _allApplications = new();
     private CancellationTokenSource? _refreshCancellation;
     private ReadOnlyDiscoveryBundle? _bundle;
@@ -98,6 +100,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         ILocalDnsRuntimeDiagnostic dnsRuntimeDiagnostic,
         IDnsRehearsalReadinessDiscovery dnsRehearsalReadinessDiscovery,
         IProfileSelectionStore profileSelectionStore,
+        IQuietShieldServiceClient serviceClient,
         ILogger<MainViewModel> logger)
     {
         _discovery = discovery;
@@ -111,6 +114,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _dnsDecisionCache = dnsDecisionCache;
         _dnsRuntimeDiagnostic = dnsRuntimeDiagnostic;
         _dnsRehearsalReadinessDiscovery = dnsRehearsalReadinessDiscovery;
+        _serviceClient = serviceClient;
         _logger = logger;
         InitializeProgramConnectionLock(profileSelectionStore);
         InitializeProgramLockTransactions();
@@ -185,7 +189,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsLicensing => SelectedPage.Title == "Licensing";
     public bool IsSettings => SelectedPage.Title == "Settings";
     public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsProtectionProfiles || IsSchedules || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings);
-    public string VersionText { get; } = "Version 0.9.0 - Controlled Firewall Rehearsal Foundation";
+    public string VersionText { get; } = "Version 0.10.0 - Persistent Service Foundation";
     public string FoundationMode { get; } = "Foundation Mode";
     public string ProtectionState { get; } = "Protection Not Activated";
     public string ActiveProfile { get; } = "Simulation only";
@@ -232,6 +236,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         TraySummary = tray.Message;
         await InitializeDnsFoundationAsync(cancellationToken).ConfigureAwait(true);
         await InitializeDnsRehearsalReadinessAsync(cancellationToken).ConfigureAwait(true);
+        await InitializePersistentServiceFoundationAsync(cancellationToken).ConfigureAwait(true);
         await RefreshAsync(false).ConfigureAwait(true);
         LogInitializedMessage(_logger, null);
     }

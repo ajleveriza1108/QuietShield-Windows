@@ -104,10 +104,12 @@ public sealed class RepositoryArchitectureTests
             .OrderBy(static package => package.Name, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.HasCount(2, packages);
+        Assert.HasCount(3, packages);
         var hosting = packages.Single(static package => package.Name == "Microsoft.Extensions.Hosting");
+        var windowsHosting = packages.Single(static package => package.Name == "Microsoft.Extensions.Hosting.WindowsServices");
         var testFramework = packages.Single(static package => package.Name == "MSTest");
         Assert.AreEqual("10.0.10", hosting.Version);
+        Assert.AreEqual("10.0.10", windowsHosting.Version);
         Assert.AreEqual("4.0.2", testFramework.Version);
 
         foreach (var project in Directory.EnumerateFiles(RepositoryRoot, "*.csproj", SearchOption.AllDirectories))
@@ -213,14 +215,15 @@ public sealed class RepositoryArchitectureTests
     }
 
     [TestMethod]
-    public void ServiceProjectHasNoRegistrationPackageOrConfiguration()
+    public void ServiceProjectSupportsWindowsServiceLifetimeWithoutRegistrationConfiguration()
     {
         var projectPath = Path.Combine(RepositoryRoot, "src", "QuietShield.Service", "QuietShield.Service.csproj");
         var content = File.ReadAllText(projectPath);
 
-        Assert.IsFalse(content.Contains("WindowsServices", StringComparison.OrdinalIgnoreCase));
+        StringAssert.Contains(content, "Microsoft.Extensions.Hosting.WindowsServices");
         Assert.IsFalse(content.Contains("ServiceName", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(content.Contains("UseWindowsService", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(content.Contains("ServiceInstaller", StringComparison.OrdinalIgnoreCase));
     }
 
     [TestMethod]
@@ -1077,6 +1080,52 @@ public sealed class RepositoryArchitectureTests
                      "PermanentEnforcementInactive", "MisleadingPermanentControlsAbsent", "1024d, 640d", "ScrollableWidth"
                  })
             StringAssert.Contains(validator, required);
+    }
+
+    [TestMethod]
+    public void Phase10AServiceFoundationIsLocalReadOnlyAndProductionStructured()
+    {
+        var serviceRoot = Path.Combine(RepositoryRoot, "src", "QuietShield.Service");
+        var serviceSource = string.Join(Environment.NewLine, Directory.GetFiles(serviceRoot, "*.cs").Select(File.ReadAllText));
+        foreach (var required in new[]
+                 {
+                     "AddWindowsService", "BackgroundService", "NamedPipeQuietShieldServer", "PersistentServiceRuntime",
+                     "ReadOnlyPersistentPolicyCoordinator", "InMemoryPolicyApplicator", "NotActiveMessage",
+                     "InterruptedTransactionDetected", "LastKnownGood"
+                 })
+            StringAssert.Contains(serviceSource, required);
+        foreach (var forbidden in new[]
+                 {
+                     "New-NetFirewallRule", "Set-NetFirewallRule", "Remove-NetFirewallRule", "Set-DnsClientServerAddress",
+                     "ServiceController", "InstallUtil", "sc.exe", "Registry.SetValue", "-Verb RunAs"
+                 })
+            Assert.IsFalse(serviceSource.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"The Phase 10A service contains a prohibited mutation or registration surface: {forbidden}.");
+
+        var ipc = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Core", "ServiceFoundation", "NamedPipeIpc.cs"));
+        foreach (var required in new[] { "PipeOptions.CurrentUserOnly", "MaximumMessageBytes", "CancelAfter", "ProtocolVersion", "RequestId" })
+            StringAssert.Contains(ipc, required);
+        foreach (var forbidden in new[] { "TcpListener", "UdpClient", "HttpListener", "NamedPipeClientStream(\"localhost\"" })
+            Assert.IsFalse(ipc.Contains(forbidden, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void Phase10AGuiShowsOnlyDiagnosticServiceStatusWithoutActivationControls()
+    {
+        var page = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages", "DashboardPage.xaml"));
+        foreach (var required in new[]
+                 {
+                     "Persistent service foundation", "ServiceInstallationStatus", "ServiceCommunicationStatus",
+                     "PersistentEnforcementStatus", "ServiceActiveProfile", "LastKnownGoodPolicyStatus",
+                     "ServiceTransactionStatus", "ServiceRecoveryReadiness", "AdaptiveGridPanel"
+                 })
+            StringAssert.Contains(page, required);
+        foreach (var prohibited in new[] { "Content=\"Install Service\"", "Content=\"Start Service\"", "Content=\"Apply\"", "Content=\"Enforce\"" })
+            Assert.IsFalse(page.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
+        foreach (var launcher in new[] { "Run-Service-Diagnostic.bat", "Test-Service-Communication.bat" })
+        {
+            var content = File.ReadAllText(Path.Combine(RepositoryRoot, launcher));
+            Assert.IsFalse(content.Contains("RunAs", StringComparison.OrdinalIgnoreCase));
+        }
     }
 
     private static string FindRepositoryRoot()

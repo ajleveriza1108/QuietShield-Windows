@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using QuietShield.App.ViewModels;
 using QuietShield.App.Windowing;
 using QuietShield.Core.Dns;
+using QuietShield.Core.ServiceFoundation;
 using QuietShield.Licensing;
 using QuietShield.Windows.Diagnostics;
 using QuietShield.Windows.Dns;
@@ -79,6 +80,9 @@ public partial class App : Application
         }
         builder.Services.AddSingleton<IProfileSelectionStore>(_ => new JsonProfileSelectionStore(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietShield", "Profiles", "selected-profile.json")));
+        builder.Services.AddSingleton<IQuietShieldServiceClient>(_ => new NamedPipeQuietShieldServiceClient(
+            GetArgumentValue(e.Args, "--service-pipe-name") ?? QuietShieldServiceProtocol.DefaultPipeName,
+            TimeSpan.FromSeconds(3)));
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
 
@@ -108,6 +112,24 @@ public partial class App : Application
             }
 
             var result = await Phase9GuiValidator.ValidateAsync(window, viewModel, planExportOutput).ConfigureAwait(true);
+            var directory = Path.GetDirectoryName(validationOutput);
+            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+            await File.WriteAllTextAsync(validationOutput, JsonSerializer.Serialize(result, GuiValidationSerializerOptions), CancellationToken.None).ConfigureAwait(true);
+            if (!string.Equals(result.Status, "Passed", StringComparison.Ordinal)) Environment.ExitCode = 2;
+            window.Close();
+            return;
+        }
+
+        if (e.Args.Contains("--phase10a-smoke", StringComparer.OrdinalIgnoreCase))
+        {
+            var validationOutput = GetArgumentValue(e.Args, "--gui-validation-output");
+            var planExportOutput = GetArgumentValue(e.Args, "--plan-export-output");
+            if (string.IsNullOrWhiteSpace(validationOutput) || string.IsNullOrWhiteSpace(planExportOutput))
+            {
+                throw new InvalidOperationException("Phase 10A GUI validation requires --gui-validation-output and --plan-export-output.");
+            }
+
+            var result = await Phase10AGuiValidator.ValidateAsync(window, viewModel, planExportOutput).ConfigureAwait(true);
             var directory = Path.GetDirectoryName(validationOutput);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
             await File.WriteAllTextAsync(validationOutput, JsonSerializer.Serialize(result, GuiValidationSerializerOptions), CancellationToken.None).ConfigureAwait(true);
