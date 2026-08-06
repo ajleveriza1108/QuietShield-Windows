@@ -13,6 +13,10 @@ public sealed partial class MainViewModel
     private string _lastKnownGoodPolicyStatus = "Not yet queried";
     private string _serviceTransactionStatus = "Not yet queried";
     private string _serviceRecoveryReadiness = "Not yet queried";
+    private string _serviceInstalled = "No";
+    private string _serviceRunning = "No";
+    private string _serviceIpcConnected = "No";
+    private string _persistentEnforcementAvailable = "No";
 
     public string ServiceInstallationStatus { get => _serviceInstallationStatus; private set => SetField(ref _serviceInstallationStatus, value); }
     public string ServiceCommunicationStatus { get => _serviceCommunicationStatus; private set => SetField(ref _serviceCommunicationStatus, value); }
@@ -21,6 +25,10 @@ public sealed partial class MainViewModel
     public string LastKnownGoodPolicyStatus { get => _lastKnownGoodPolicyStatus; private set => SetField(ref _lastKnownGoodPolicyStatus, value); }
     public string ServiceTransactionStatus { get => _serviceTransactionStatus; private set => SetField(ref _serviceTransactionStatus, value); }
     public string ServiceRecoveryReadiness { get => _serviceRecoveryReadiness; private set => SetField(ref _serviceRecoveryReadiness, value); }
+    public string ServiceInstalled { get => _serviceInstalled; private set => SetField(ref _serviceInstalled, value); }
+    public string ServiceRunning { get => _serviceRunning; private set => SetField(ref _serviceRunning, value); }
+    public string ServiceIpcConnected { get => _serviceIpcConnected; private set => SetField(ref _serviceIpcConnected, value); }
+    public string PersistentEnforcementAvailable { get => _persistentEnforcementAvailable; private set => SetField(ref _persistentEnforcementAvailable, value); }
 
     private async Task InitializePersistentServiceFoundationAsync(CancellationToken cancellationToken)
     {
@@ -37,6 +45,10 @@ public sealed partial class MainViewModel
             LastKnownGoodPolicyStatus = status.LastKnownGoodPolicyStatus;
             ServiceTransactionStatus = status.TransactionStatus;
             ServiceRecoveryReadiness = status.RecoveryReadiness;
+            ServiceInstalled = status.ServiceInstalled ? "Yes" : "No";
+            ServiceRunning = status.ServiceRunning ? "Yes" : "No";
+            ServiceIpcConnected = status.IpcConnected ? "Yes" : "No";
+            PersistentEnforcementAvailable = status.PersistentEnforcementAvailable ? "Yes — approved rehearsal only" : "No";
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or TimeoutException or OperationCanceledException)
         {

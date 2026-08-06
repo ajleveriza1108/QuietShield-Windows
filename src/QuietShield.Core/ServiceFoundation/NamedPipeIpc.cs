@@ -60,12 +60,14 @@ public sealed class NamedPipeQuietShieldServiceClient : IQuietShieldServiceClien
 {
     private readonly string _pipeName;
     private readonly TimeSpan _timeout;
+    private readonly bool _currentUserOnly;
 
-    public NamedPipeQuietShieldServiceClient(string pipeName, TimeSpan? timeout = null)
+    public NamedPipeQuietShieldServiceClient(string pipeName, TimeSpan? timeout = null, bool currentUserOnly = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pipeName);
         _pipeName = pipeName;
         _timeout = timeout ?? QuietShieldServiceProtocol.DefaultTimeout;
+        _currentUserOnly = currentUserOnly;
         if (_timeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
     }
 
@@ -73,7 +75,8 @@ public sealed class NamedPipeQuietShieldServiceClient : IQuietShieldServiceClien
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_timeout);
-        await using var client = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        var options = _currentUserOnly ? PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly : PipeOptions.Asynchronous;
+        await using var client = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut, options);
         await client.ConnectAsync(timeout.Token).ConfigureAwait(false);
         var request = new ServiceRequest(QuietShieldServiceProtocol.CurrentVersion, Guid.NewGuid(), messageKind, ServiceMessageSerializer.ToPayload(payload));
         var requestBytes = JsonSerializer.SerializeToUtf8Bytes(request, ServiceMessageSerializer.Options);
@@ -89,26 +92,32 @@ public sealed class NamedPipeQuietShieldServer
     private readonly string _pipeName;
     private readonly IQuietShieldServiceRequestHandler _handler;
     private readonly TimeSpan _requestTimeout;
+    private readonly Func<NamedPipeServerStream> _serverFactory;
 
-    public NamedPipeQuietShieldServer(string pipeName, IQuietShieldServiceRequestHandler handler, TimeSpan? requestTimeout = null)
+    public NamedPipeQuietShieldServer(
+        string pipeName,
+        IQuietShieldServiceRequestHandler handler,
+        TimeSpan? requestTimeout = null,
+        Func<NamedPipeServerStream>? serverFactory = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pipeName);
         _pipeName = pipeName;
         _handler = handler ?? throw new ArgumentNullException(nameof(handler));
         _requestTimeout = requestTimeout ?? QuietShieldServiceProtocol.DefaultTimeout;
         if (_requestTimeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(requestTimeout));
+        _serverFactory = serverFactory ?? (() => new NamedPipeServerStream(
+            _pipeName,
+            PipeDirection.InOut,
+            NamedPipeServerStream.MaxAllowedServerInstances,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly));
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            await using var server = new NamedPipeServerStream(
-                _pipeName,
-                PipeDirection.InOut,
-                NamedPipeServerStream.MaxAllowedServerInstances,
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+            await using var server = _serverFactory();
             try
             {
                 await server.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);

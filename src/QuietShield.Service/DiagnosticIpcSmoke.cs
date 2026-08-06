@@ -12,7 +12,8 @@ public static class DiagnosticIpcSmoke
     {
         try
         {
-            var client = new NamedPipeQuietShieldServiceClient(options.PipeName, options.RequestTimeout);
+            var client = new NamedPipeQuietShieldServiceClient(options.PipeName, options.RequestTimeout,
+                !options.PipeName.Equals(QuietShieldServiceProtocol.ProductionPipeName, StringComparison.Ordinal));
             var ping = await client.SendAsync(ServiceMessageKind.Ping, null, cancellationToken).ConfigureAwait(false);
             var status = await client.SendAsync(ServiceMessageKind.GetServiceStatus, null, cancellationToken).ConfigureAwait(false);
             var blocked = await client.SendAsync(ServiceMessageKind.PreviewPolicyPlan, new PolicyPreviewRequest(ProgramConnectionPolicy.Blocked), cancellationToken).ConfigureAwait(false);

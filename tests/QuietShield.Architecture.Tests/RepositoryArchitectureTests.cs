@@ -178,6 +178,16 @@ public sealed class RepositoryArchitectureTests
                 {
                     continue;
                 }
+                if (Path.GetFileName(script).Equals("Invoke-ServiceFirewallPolicy.ps1", StringComparison.OrdinalIgnoreCase) &&
+                    (fragment.Equals("New-NetFirewall", StringComparison.OrdinalIgnoreCase) || fragment.Equals("Remove-NetFirewall", StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+                if (Path.GetFileName(script).Equals("Install-QuietShieldService.ps1", StringComparison.OrdinalIgnoreCase) &&
+                    fragment.Equals("New-Service", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
                 Assert.IsFalse(
                     content.Contains(fragment, StringComparison.OrdinalIgnoreCase),
                     $"{Path.GetRelativePath(RepositoryRoot, script)} contains forbidden command fragment '{fragment}'.");
@@ -1126,6 +1136,115 @@ public sealed class RepositoryArchitectureTests
             var content = File.ReadAllText(Path.Combine(RepositoryRoot, launcher));
             Assert.IsFalse(content.Contains("RunAs", StringComparison.OrdinalIgnoreCase));
         }
+    }
+
+    [TestMethod]
+    public void Phase10BServiceLifecycleScriptsAreExactApprovedAndNeverSelfElevate()
+    {
+        var scripts = Path.Combine(RepositoryRoot, "scripts");
+        foreach (var name in new[]
+                 {
+                     "Install-QuietShieldService.ps1", "Uninstall-QuietShieldService.ps1", "Start-QuietShieldService.ps1",
+                     "Stop-QuietShieldService.ps1", "Test-QuietShieldService.ps1", "Restore-QuietShieldServiceState.ps1"
+                 })
+        {
+            var source = File.ReadAllText(Path.Combine(scripts, name));
+            Assert.IsFalse(source.Contains("-Verb RunAs", StringComparison.OrdinalIgnoreCase));
+            StringAssert.Contains(source, "Assert-QuietShieldPowerShell51");
+        }
+        var install = File.ReadAllText(Path.Combine(scripts, "Install-QuietShieldService.ps1"));
+        foreach (var required in new[]
+                 {
+                     "ApprovedServiceInstallation", "QuietShieldService", "QuietShield Protection Service", "New-Service",
+                     "delayed-auto", "restart/60000", "Assert-QuietShieldNoForeignServiceCollision", "service-ownership.json",
+                     "LocalSystem", "ApprovedRehearsalId", "never self-elevates"
+                 })
+            StringAssert.Contains(install, required);
+        var uninstall = File.ReadAllText(Path.Combine(scripts, "Uninstall-QuietShieldService.ps1"));
+        StringAssert.Contains(uninstall, "Test-QuietShieldServiceOwnership");
+        StringAssert.Contains(uninstall, "CleanupForUninstall");
+        Assert.IsFalse(uninstall.Contains("Get-Service *", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void Phase10BFirewallMutationIsExactOwnedAndSupportsOnlyTwoPolicies()
+    {
+        var script = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "Invoke-ServiceFirewallPolicy.ps1"));
+        foreach (var required in new[]
+                 {
+                     "ValidateSet('Query','Blocked','AllowedOnAll','Restore','Cleanup')", "Test-QuietShieldFirewallTransaction",
+                     "Get-NetFirewallRule -Name $ExactName", "New-NetFirewallRule -Name ([string]$transaction.ruleName)",
+                     "Remove-NetFirewallRule -Name ([string]$transaction.ruleName) -Confirm:$false", "ApprovedServiceEnforcement"
+                 })
+            StringAssert.Contains(script, required);
+        Assert.IsFalse(script.Contains("Get-NetFirewallRule -DisplayName", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(script.Contains("Remove-NetFirewallRule -DisplayName", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(script, @"Remove-NetFirewallRule[^\r\n]*\*", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+        foreach (var forbidden in new[] { "Set-DnsClient", "Fwpm", "New-Service", "Set-NetAdapter", "Registry" })
+            Assert.IsFalse(script.Contains(forbidden, StringComparison.OrdinalIgnoreCase));
+
+        var coordinator = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Service", "PersistentProgramPolicyCoordinator.cs"));
+        StringAssert.Contains(coordinator, "ProgramConnectionPolicy.Blocked or ProgramConnectionPolicy.AllowedOnAll");
+        StringAssert.Contains(coordinator, "Network-specific policies remain simulation-only");
+        StringAssert.Contains(coordinator, "QuietShield.ConnectionProbe");
+    }
+
+    [TestMethod]
+    public void Phase10BPipeAndGuiExposeStatusWithoutCustomerEnforcementControls()
+    {
+        var pipe = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Service", "ServiceNamedPipeFactory.cs"));
+        foreach (var required in new[] { "LocalSystemSid", "BuiltinAdministratorsSid", "authorizedUserSid", "SetAccessRuleProtection(true, false)" })
+            StringAssert.Contains(pipe, required);
+        Assert.IsFalse(pipe.Contains("WorldSid", StringComparison.Ordinal));
+        var page = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages", "DashboardPage.xaml"));
+        foreach (var required in new[] { "ServiceInstalled", "ServiceRunning", "ServiceIpcConnected", "PersistentEnforcementAvailable", "ServiceTransactionStatus", "LastKnownGoodPolicyStatus", "ServiceRecoveryReadiness" })
+            StringAssert.Contains(page, required);
+        foreach (var prohibited in new[] { "Content=\"Install Service\"", "Content=\"Start Service\"", "Content=\"Apply\"", "Content=\"Enforce\"" })
+            Assert.IsFalse(page.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void Phase10BRootLaunchersArePowerShell51AndNeverElevate()
+    {
+        foreach (var launcher in new[]
+                 {
+                     "Install-QuietShield-Service.bat", "Uninstall-QuietShield-Service.bat", "Start-QuietShield-Service.bat",
+                     "Stop-QuietShield-Service.bat", "Test-QuietShield-Service.bat", "Emergency-Restore-QuietShield.bat"
+                 })
+        {
+            var source = File.ReadAllText(Path.Combine(RepositoryRoot, launcher));
+            StringAssert.Contains(source, "powershell.exe -NoProfile -ExecutionPolicy Bypass -File");
+            Assert.IsFalse(source.Contains("RunAs", StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    [TestMethod]
+    public void Phase10BServiceLifecycleSimulationsPassWithoutWindowsMutation()
+    {
+        var script = Path.Combine(RepositoryRoot, "scripts", "Test-QuietShieldServiceLifecycleSimulations.ps1");
+        var start = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script }) start.ArgumentList.Add(argument);
+        using var process = System.Diagnostics.Process.Start(start);
+        Assert.IsNotNull(process);
+        Assert.IsTrue(process.WaitForExit(15_000), "Phase 10B service lifecycle simulations timed out.");
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        Assert.AreEqual(0, process.ExitCode, error);
+        foreach (var required in new[]
+                 {
+                     "freshInstall", "repeatedInstall", "orphanResume", "foreignServiceRefusal",
+                     "malformedOwnershipRefusal", "repeatedUninstall", "exactOwnedUninstall", "ambiguousIdentityRefusal",
+                     "windowsStateChanged"
+                 })
+            StringAssert.Contains(output, required);
+        StringAssert.Contains(output, "\"status\": \"Passed\"");
     }
 
     private static string FindRepositoryRoot()

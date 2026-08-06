@@ -9,6 +9,7 @@ public static class QuietShieldServiceProtocol
     public const int CurrentVersion = 1;
     public const int MaximumMessageBytes = 64 * 1024;
     public const string DefaultPipeName = "QuietShield.Service.Diagnostic.v1";
+    public const string ProductionPipeName = "QuietShield.Service.v1";
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
     public const string NotActiveMessage = "NotActive \u2014 service installation and enforcement not enabled.";
 }
@@ -57,7 +58,11 @@ public sealed record ServiceStatusSnapshot(
     string LastKnownGoodPolicyStatus,
     string TransactionStatus,
     string RecoveryReadiness,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    bool ServiceInstalled = false,
+    bool ServiceRunning = false,
+    bool IpcConnected = false,
+    bool PersistentEnforcementAvailable = false);
 
 public sealed record ServiceHealthSnapshot(
     string State,
@@ -69,6 +74,22 @@ public sealed record ServiceHealthSnapshot(
     string Detail);
 
 public sealed record PolicyPreviewRequest(ProgramConnectionPolicy Policy);
+
+public sealed record ProgramRuleChangeRequest(
+    Guid ApprovedRehearsalId,
+    string ProfileId,
+    string StableApplicationIdentity,
+    string ExecutablePath,
+    string ExecutableSha256,
+    ProgramConnectionPolicy Policy);
+
+public sealed record ProgramRuleChangeResponse(
+    Guid TransactionId,
+    ProgramConnectionPolicy Policy,
+    string ExactRuleName,
+    string TransactionStatus,
+    bool ExactRulePresent,
+    IReadOnlyList<string> VisibleSafetyExemptions);
 
 public sealed record PolicyPreviewResponse(
     ProgramConnectionPolicy Policy,

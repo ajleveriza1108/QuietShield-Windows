@@ -8,16 +8,25 @@ public sealed class ServiceFoundationWorker : BackgroundService
 {
     private readonly PersistentServiceRuntime _runtime;
     private readonly IHeartbeatDelay _delay;
+    private readonly IServiceProgramPolicyCoordinator _policyCoordinator;
 
-    public ServiceFoundationWorker(PersistentServiceRuntime runtime, IHeartbeatDelay delay)
+    public ServiceFoundationWorker(PersistentServiceRuntime runtime, IHeartbeatDelay delay, IServiceProgramPolicyCoordinator policyCoordinator)
     {
         _runtime = runtime;
         _delay = delay;
+        _policyCoordinator = policyCoordinator;
+    }
+
+    public override async Task StartAsync(CancellationToken cancellationToken)
+    {
+        await _runtime.StartAsync(cancellationToken).ConfigureAwait(false);
+        _runtime.SetPersistentEnforcementAvailable(_policyCoordinator.PersistentEnforcementAvailable);
+        await _policyCoordinator.RecoverInterruptedAsync(cancellationToken).ConfigureAwait(false);
+        await base.StartAsync(cancellationToken).ConfigureAwait(false);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await _runtime.StartAsync(stoppingToken).ConfigureAwait(false);
         try
         {
             while (!stoppingToken.IsCancellationRequested)

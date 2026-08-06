@@ -5,17 +5,19 @@ using QuietShield.Core.ServiceFoundation;
 
 namespace QuietShield.Service;
 
-public sealed partial class PersistentServiceRuntime
+public sealed partial class PersistentServiceRuntime : IDisposable
 {
     public const int CurrentSchemaVersion = 1;
     private readonly object _sync = new();
     private readonly DiagnosticServiceOptions _options;
     private readonly AtomicJsonStateStore<PersistentServiceState> _store;
     private readonly ILogger<PersistentServiceRuntime> _logger;
+    private readonly SemaphoreSlim _stateMutationGate = new(1, 1);
     private PersistentServiceState _state = CreateDefault();
     private ServiceHealthSnapshot _health = new("Stopped", 0, null, "Not run", true, false, "Service host is stopped.");
     private bool _usedLastKnownGood;
     private bool _stateIntegrityValid = true;
+    private bool _persistentEnforcementAvailable;
 
     public PersistentServiceRuntime(
         DiagnosticServiceOptions options,
@@ -65,7 +67,7 @@ public sealed partial class PersistentServiceRuntime
             : _usedLastKnownGood
                 ? "Primary state was refused; validated last-known-good state loaded without enforcement."
                 : "Startup preflight and persistent-state integrity validation passed; enforcement remains inactive.";
-        SetHealth(interrupted ? "RecoveryRequired" : "HealthyDiagnostic", detail, true, interrupted);
+        SetHealth(interrupted ? "RecoveryRequired" : _options.ServiceMode ? "HealthyService" : "HealthyDiagnostic", detail, true, interrupted);
         await PersistHealthAsync("Running", "Unclean until graceful stop completes.", null, cancellationToken).ConfigureAwait(false);
         LogStarted(_logger, _options.PipeName);
     }
@@ -100,21 +102,66 @@ public sealed partial class PersistentServiceRuntime
         lock (_sync)
         {
             return new(
-                "Not installed",
-                _options.DiagnosticMode ? "Diagnostic mode" : "Console-safe mode",
-                "Not active",
+                _options.ServiceMode ? "Installed" : "Not installed",
+                _options.ServiceMode ? "Service IPC" : _options.DiagnosticMode ? "Diagnostic mode" : "Console-safe mode",
+                _persistentEnforcementAvailable ? "Available for approved rehearsal" : "Not active",
                 _state.ActiveProfileId,
                 _usedLastKnownGood ? "Recovered from validated last-known-good policy" : _state.LastKnownGoodPolicy.Validated ? "Validated" : "Not validated",
                 _state.TransactionCheckpoint.IsInterrupted ? "Interrupted transaction requires explicit recovery" : _state.TransactionCheckpoint.State?.ToString() ?? "No transaction",
-                _state.TransactionCheckpoint.IsInterrupted ? "Explicit rollback required" : "Ready; exact rollback architecture registered in memory only",
-                health.LastHeartbeatUtc ?? DateTimeOffset.UtcNow);
+                _state.TransactionCheckpoint.IsInterrupted ? "Explicit rollback required" : "Ready; exact transaction rollback validated",
+                health.LastHeartbeatUtc ?? DateTimeOffset.UtcNow,
+                _options.ServiceMode,
+                _options.ServiceMode && health.State is not ("Stopped" or "Stopping" or "InvalidState"),
+                true,
+                _persistentEnforcementAvailable);
         }
     }
 
     public PersistentServiceState GetState() { lock (_sync) return _state; }
 
+    public void SetPersistentEnforcementAvailable(bool available) => _persistentEnforcementAvailable = available && _stateIntegrityValid;
+
+    public async Task UpdateTransactionAsync(PersistentTransactionCheckpoint checkpoint, CancellationToken cancellationToken)
+    {
+        await _stateMutationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            PersistentServiceState updated;
+            lock (_sync) { updated = _state with { TransactionCheckpoint = checkpoint }; _state = updated; }
+            await _store.SaveAsync(StatePath, updated, cancellationToken).ConfigureAwait(false);
+        }
+        finally { _stateMutationGate.Release(); }
+    }
+
+    public async Task CommitPolicyAsync(string profileId, PersistentProgramPolicy policy, string policySha256, CancellationToken cancellationToken)
+    {
+        await _stateMutationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            PersistentServiceState updated;
+            lock (_sync)
+            {
+                var policies = _state.ProgramPolicies.Where(item => !item.StableApplicationIdentity.Equals(policy.StableApplicationIdentity, StringComparison.OrdinalIgnoreCase)).Append(policy).ToArray();
+                updated = _state with
+                {
+                    ActiveProfileId = profileId,
+                    ProgramPolicies = policies,
+                    LastKnownGoodPolicy = new(profileId, policySha256, DateTimeOffset.UtcNow, true),
+                    TransactionCheckpoint = new(null, ProgramLockTransactionState.Committed, DateTimeOffset.UtcNow, false, "Exact Program Lock policy transaction committed and verified.")
+                };
+                _state = updated;
+            }
+            await _store.SaveAsync(StatePath, updated, cancellationToken).ConfigureAwait(false);
+            await _store.SaveAsync(LastKnownGoodPath, updated, cancellationToken).ConfigureAwait(false);
+        }
+        finally { _stateMutationGate.Release(); }
+    }
+
     private async Task PersistHealthAsync(string state, string shutdown, string? failure, CancellationToken cancellationToken)
     {
+        await _stateMutationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
         PersistentServiceState updated;
         lock (_sync)
         {
@@ -127,6 +174,8 @@ public sealed partial class PersistentServiceRuntime
         await _store.SaveAsync(StatePath, updated, cancellationToken).ConfigureAwait(false);
         if (updated.LastKnownGoodPolicy.Validated && !updated.TransactionCheckpoint.IsInterrupted)
             await _store.SaveAsync(LastKnownGoodPath, updated, cancellationToken).ConfigureAwait(false);
+        }
+        finally { _stateMutationGate.Release(); }
     }
 
     private void SetHealth(string state, string detail, bool integrity, bool interrupted)
@@ -147,6 +196,12 @@ public sealed partial class PersistentServiceRuntime
             new(null, null, DateTimeOffset.UtcNow, false, "No persistent transaction has started."),
             new(ConnectionLockProfile.BlockAllId, policyHash, DateTimeOffset.UtcNow, true),
             new("Created", 0, null, "Clean", null));
+    }
+
+    public void Dispose()
+    {
+        _stateMutationGate.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [LoggerMessage(EventId = 10101, Level = LogLevel.Information, Message = "QuietShield service diagnostic foundation started on local named pipe {PipeName}; persistent enforcement remains inactive.")]

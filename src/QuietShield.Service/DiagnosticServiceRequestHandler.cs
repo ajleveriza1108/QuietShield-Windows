@@ -15,17 +15,24 @@ public sealed class DiagnosticServiceRequestHandler : IQuietShieldServiceRequest
 
     private readonly PersistentServiceRuntime _runtime;
     private readonly IPersistentPolicyCoordinator _coordinator;
+    private readonly IServiceProgramPolicyCoordinator _programPolicyCoordinator;
 
-    public DiagnosticServiceRequestHandler(PersistentServiceRuntime runtime, IPersistentPolicyCoordinator coordinator)
+    public DiagnosticServiceRequestHandler(
+        PersistentServiceRuntime runtime,
+        IPersistentPolicyCoordinator coordinator,
+        IServiceProgramPolicyCoordinator programPolicyCoordinator)
     {
         _runtime = runtime;
         _coordinator = coordinator;
+        _programPolicyCoordinator = programPolicyCoordinator;
     }
 
     public async Task<ServiceResponse> HandleAsync(ServiceRequest request, CancellationToken cancellationToken)
     {
         if (request.ProtocolVersion != QuietShieldServiceProtocol.CurrentVersion)
             return Response(request, ServiceResponseStatus.UnsupportedProtocol, "Unsupported protocol version.", null);
+        if (request.MessageKind == ServiceMessageKind.RequestProgramRuleChange)
+            return await ChangeProgramRuleAsync(request, cancellationToken).ConfigureAwait(false);
         if (ModifyingRequests.Contains(request.MessageKind))
             return Response(request, ServiceResponseStatus.NotActive, QuietShieldServiceProtocol.NotActiveMessage, null);
 
@@ -39,6 +46,25 @@ public sealed class DiagnosticServiceRequestHandler : IQuietShieldServiceRequest
             ServiceMessageKind.PreviewPolicyPlan => await PreviewAsync(request, cancellationToken).ConfigureAwait(false),
             _ => Response(request, ServiceResponseStatus.InvalidRequest, "The request kind is unsupported.", null)
         };
+    }
+
+    private async Task<ServiceResponse> ChangeProgramRuleAsync(ServiceRequest request, CancellationToken cancellationToken)
+    {
+        if (!_programPolicyCoordinator.PersistentEnforcementAvailable)
+            return Response(request, ServiceResponseStatus.NotActive, QuietShieldServiceProtocol.NotActiveMessage, null);
+        ProgramRuleChangeRequest? change;
+        try { change = request.Payload.Deserialize<ProgramRuleChangeRequest>(ServiceMessageSerializer.Options); }
+        catch (JsonException) { change = null; }
+        if (change is null) return Response(request, ServiceResponseStatus.InvalidRequest, "A complete exact program-rule change request is required.", null);
+        try
+        {
+            var result = await _programPolicyCoordinator.ChangeAsync(change, cancellationToken).ConfigureAwait(false);
+            return Response(request, ServiceResponseStatus.Ok, "The exact approved Program Lock transaction committed.", result);
+        }
+        catch (Exception exception) when (exception is InvalidDataException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
+        {
+            return Response(request, ServiceResponseStatus.InvalidRequest, exception.Message, null);
+        }
     }
 
     private async Task<ServiceResponse> PreviewAsync(ServiceRequest request, CancellationToken cancellationToken)
@@ -55,8 +81,8 @@ public sealed class DiagnosticServiceRequestHandler : IQuietShieldServiceRequest
             preview.Policy,
             plan.Enforceability.Support,
             plan.Enforceability.Layer,
-            false,
-            supported ? "Supported eventual policy; Phase 10A remains read-only" : plan.Enforceability.Support.ToString(),
+            _programPolicyCoordinator.PersistentEnforcementAvailable && supported,
+            supported ? _programPolicyCoordinator.PersistentEnforcementAvailable ? "Supported for the approved controlled rehearsal" : "Supported eventual policy; installation remains inactive" : plan.Enforceability.Support.ToString(),
             plan.Enforceability.Reason,
             plan.SafetyExemptions.Select(static exemption => $"{exemption.Kind}: {exemption.VisibleReason}").ToArray());
         return Response(request, ServiceResponseStatus.Ok, "Read-only policy preview returned.", result);

@@ -132,7 +132,7 @@ public sealed class Phase10AServiceAndIpcTests
     }
 
     private static PersistentServiceRuntime CreateRuntime(string stateRoot) => new(
-        new(true, false, "QuietShield.Tests." + Guid.NewGuid().ToString("N"), stateRoot, null, TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+        new(true, false, false, "QuietShield.Tests." + Guid.NewGuid().ToString("N"), stateRoot, null, TimeSpan.Zero, TimeSpan.FromSeconds(2), null, null, null),
         new AtomicJsonStateStore<PersistentServiceState>(1),
         NullLogger<PersistentServiceRuntime>.Instance);
 
@@ -172,7 +172,8 @@ public sealed class Phase10AServiceAndIpcTests
             var runtime = CreateRuntime(directory.Path);
             await runtime.StartAsync(CancellationToken.None);
             var handler = new DiagnosticServiceRequestHandler(runtime,
-                new ReadOnlyPersistentPolicyCoordinator(new ReadOnlyPersistentPolicyPreflight()));
+                new ReadOnlyPersistentPolicyCoordinator(new ReadOnlyPersistentPolicyPreflight()),
+                new InactiveServiceProgramPolicyCoordinator());
             var pipe = "QuietShield.Tests." + Guid.NewGuid().ToString("N");
             var cancellation = new CancellationTokenSource();
             var task = new NamedPipeQuietShieldServer(pipe, handler).RunAsync(cancellation.Token);
