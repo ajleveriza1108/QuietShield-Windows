@@ -1244,7 +1244,15 @@ public sealed class RepositoryArchitectureTests
                      "windowsStateChanged"
                  })
             StringAssert.Contains(output, required);
-        StringAssert.Contains(output, "\"status\": \"Passed\"");
+        using var resultDocument = System.Text.Json.JsonDocument.Parse(output);
+        var resultRoot = resultDocument.RootElement;
+
+        Assert.AreEqual(
+            "Passed",
+            resultRoot.GetProperty("status").GetString());
+
+        Assert.IsFalse(
+            resultRoot.GetProperty("windowsStateChanged").GetBoolean());
     }
 
     private static string FindRepositoryRoot()
