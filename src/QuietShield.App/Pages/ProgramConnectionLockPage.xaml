@@ -10,6 +10,24 @@
                 <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Phase 8 previews deterministic transactions, verified backups, and rollback behavior. Every operation remains non-executable." />
             </StackPanel>
         </Border>
+        <Border Style="{StaticResource WarningBannerStyle}">
+            <TextBlock FontWeight="SemiBold" Text="Temporary dedicated test only. No installed application will be blocked." />
+        </Border>
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Controlled Firewall rehearsal status" />
+                <controls:AdaptiveGridPanel ItemMinWidth="235" MaximumColumns="4" Spacing="10">
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Firewall capability" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding FirewallRehearsalCapability}" ToolTip="{Binding FirewallRehearsalCapability}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Test executable readiness" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding RehearsalTestExecutableReadiness}" ToolTip="{Binding RehearsalTestExecutableReadiness}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Reachable endpoint readiness" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding RehearsalEndpointReadiness}" ToolTip="{Binding RehearsalEndpointReadiness}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Backup readiness" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding RehearsalBackupReadiness}" ToolTip="{Binding RehearsalBackupReadiness}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Watchdog readiness" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding RehearsalWatchdogReadiness}" ToolTip="{Binding RehearsalWatchdogReadiness}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Last rehearsal result" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding LastFirewallRehearsalResult}" ToolTip="{Binding LastFirewallRehearsalResult}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Last rollback result" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding LastFirewallRollbackResult}" ToolTip="{Binding LastFirewallRollbackResult}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Permanent enforcement" /><TextBlock Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding PermanentFirewallEnforcementStatus}" /></StackPanel>
+                </controls:AdaptiveGridPanel>
+            </StackPanel>
+        </Border>
         <controls:AdaptiveGridPanel ItemMinWidth="235" MaximumColumns="4" Spacing="10">
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>

@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\QuietShield.ConnectionProbe\QuietShield.ConnectionProbe.csproj" />
     <ProjectReference Include="..\..\src\QuietShield.Core\QuietShield.Core.csproj" />
     <ProjectReference Include="..\..\src\QuietShield.Licensing\QuietShield.Licensing.csproj" />
   </ItemGroup>

@@ -5,6 +5,7 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'QuietShield.Script.Common.ps1')
 . (Join-Path $PSScriptRoot 'DnsTransaction.Script.Common.ps1')
+. (Join-Path $PSScriptRoot 'ProgramLockRehearsal.Script.Common.ps1')
 
 Assert-QuietShieldPowerShell51
 Assert-QuietShieldNonElevated
@@ -13,8 +14,8 @@ $logPath = Start-QuietShieldLog -Name 'validation'
 $root = Get-QuietShieldRepositoryRoot
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $resultPath = Join-Path $root ('logs\validation-' + $timestamp + '.json')
-$preStatePath = Join-Path $root ('logs\phase8-pre-state-' + $timestamp + '.json')
-$postStatePath = Join-Path $root ('logs\phase8-post-state-' + $timestamp + '.json')
+$preStatePath = Join-Path $root ('logs\phase9-pre-state-' + $timestamp + '.json')
+$postStatePath = Join-Path $root ('logs\phase9-post-state-' + $timestamp + '.json')
 
 try {
     Assert-QuietShieldToolchain
@@ -22,6 +23,8 @@ try {
     $before | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $preStatePath -Encoding UTF8
     $attemptRecordsPath = Join-Path $root 'artifacts\dns-rehearsal\attempt-records.jsonl'
     $attemptRecordsHashBefore = if (Test-Path -LiteralPath $attemptRecordsPath -PathType Leaf) { (Get-FileHash -LiteralPath $attemptRecordsPath -Algorithm SHA256).Hash } else { '[absent]' }
+    $firewallAttemptRecordsPath = Join-Path $root 'artifacts\program-lock-rehearsal\attempts.jsonl'
+    $firewallAttemptRecordsHashBefore = if (Test-Path -LiteralPath $firewallAttemptRecordsPath -PathType Leaf) { (Get-FileHash -LiteralPath $firewallAttemptRecordsPath -Algorithm SHA256).Hash } else { '[absent]' }
     if ($before.QuietShieldServiceCount -ne 0) {
         throw 'A QuietShield Windows service was already registered before validation.'
     }
@@ -58,7 +61,10 @@ try {
         'Run-DnsActivationRehearsal.bat',
         'Test-ProgramLockTransaction.bat',
         'Show-ProgramLockTransactionState.bat',
-        'Emergency-Restore-ProgramLock.bat'
+        'Emergency-Restore-ProgramLock.bat',
+        'Run-ProgramLock-Rehearsal.bat',
+        'Show-ProgramLock-Rehearsal-State.bat',
+        'Emergency-Restore-ProgramLock-Rehearsal.bat'
     )
     foreach ($launcher in $launchers) {
         $launcherPath = Join-Path $root $launcher
@@ -154,6 +160,27 @@ try {
         'FullyQualifiedName~Phase8'
     )
 
+    Write-Output 'Running the Phase 9 probe, exact-rule identity, watchdog, rollback, concurrency, and duration smoke set.'
+    Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
+        'test',
+        $solution,
+        '--configuration',
+        'Release',
+        '--no-build',
+        '--no-restore',
+        '-p:Platform=x64',
+        '--filter',
+        'FullyQualifiedName~Phase9|TestCategory=Phase9Smoke'
+    )
+
+    Write-Output 'Running the Phase 9 PowerShell 5.1 watchdog, DateTimeOffset, protected-state, and exact-cleanup simulations.'
+    $phase9WatchdogSimulationOutput = @(& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\Test-ProgramLockWatchdogSimulations.ps1') 2>&1)
+    $phase9WatchdogSimulationExitCode = $LASTEXITCODE
+    $phase9WatchdogSimulationOutput | Write-Output
+    if ($phase9WatchdogSimulationExitCode -ne 0) { throw ('Phase 9 watchdog simulations returned exit code ' + [string]$phase9WatchdogSimulationExitCode) }
+    $phase9WatchdogSimulation = ($phase9WatchdogSimulationOutput -join [Environment]::NewLine) | ConvertFrom-Json
+    if ([string]$phase9WatchdogSimulation.status -cne 'Passed') { throw 'Phase 9 watchdog simulations did not report Passed.' }
+
     Write-Output 'Running Phase 4 UDP, TCP, blocked, allowed-forwarding, and transaction-plan smoke tests.'
     Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @(
         'test',
@@ -201,12 +228,33 @@ try {
         throw ("WPF application executable was not found: {0}" -f $appPath)
     }
 
-    $diagnosticPath = Join-Path $testResults 'phase8-live-diagnostic.json'
-    $guiValidationPath = Join-Path $testResults 'phase8-gui-validation.json'
-    $planExportPath = Join-Path $testResults 'phase8-enforcement-plan.json'
-    Write-Output ('Starting WPF Phase 8 transaction-plan, navigation, responsive, long-text, virtualization, and keyboard smoke process: ' + $appPath)
+    $probePath = Join-Path $root 'artifacts\bin\QuietShield.ConnectionProbe\x64\Release\net10.0\QuietShield.ConnectionProbe.exe'
+    if (-not (Test-Path -LiteralPath $probePath -PathType Leaf)) { throw ('The dedicated Phase 9 probe executable was not found: ' + $probePath) }
+    $phase9DryStatePath = Join-Path $testResults 'phase9-firewall-dry-state.json'
+    Write-Output 'Running the Phase 9 reachable-endpoint probe, transaction dry-run, and watchdog simulation without creating a Firewall rule.'
+    $phase9DryOutput = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\Invoke-ProgramLockFirewallRehearsal.ps1') -DryRun -DurationSeconds 15 -OutputPath $phase9DryStatePath 2>&1
+    $phase9DryOutput | Write-Output
+    if ($LASTEXITCODE -ne 0) { throw ('Phase 9 dry-run returned exit code ' + [string]$LASTEXITCODE) }
+    $phase9DryState = Get-Content -LiteralPath $phase9DryStatePath -Raw | ConvertFrom-Json
+    if ([string]$phase9DryState.state -cne 'WatchdogStarted' -or [bool]$phase9DryState.completed -or [int]$phase9DryState.durationSeconds -ne 15) {
+        throw 'Phase 9 dry transaction state is invalid.'
+    }
+    $dryRehearsalRules = @(Get-NetFirewallRule -Name ([string]$phase9DryState.rule.name) -ErrorAction SilentlyContinue)
+    if ($dryRehearsalRules.Count -ne 0) {
+        throw 'Phase 9 dry validation unexpectedly created its proposed Firewall rule.'
+    }
+    Write-Output 'Running exact Program Lock rehearsal restore in WhatIf mode.'
+    Invoke-QuietShieldCommand -FilePath 'powershell.exe' -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $root 'scripts\Restore-ProgramLockRehearsal.ps1'),
+        '-StatePath', $phase9DryStatePath, '-WhatIf'
+    )
+
+    $diagnosticPath = Join-Path $testResults 'phase9-live-diagnostic.json'
+    $guiValidationPath = Join-Path $testResults 'phase9-gui-validation.json'
+    $planExportPath = Join-Path $testResults 'phase9-enforcement-plan.json'
+    Write-Output ('Starting WPF Phase 9 rehearsal-status, inherited transaction-plan, responsive, long-text, virtualization, and keyboard smoke process: ' + $appPath)
     $applicationProcess = Start-Process -FilePath $appPath -ArgumentList @(
-        '--phase8-smoke',
+        '--phase9-smoke',
         '--diagnostic-output',
         ('"' + $diagnosticPath + '"'),
         '--gui-validation-output',
@@ -222,10 +270,10 @@ try {
         throw ("WPF smoke process returned exit code {0}." -f $applicationProcess.ExitCode)
     }
     if (-not (Test-Path -LiteralPath $diagnosticPath)) {
-        throw 'The WPF Phase 8 smoke did not create its requested privacy-safe diagnostic summary.'
+        throw 'The WPF Phase 9 smoke did not create its requested privacy-safe diagnostic summary.'
     }
     if (-not (Test-Path -LiteralPath $guiValidationPath)) {
-        throw 'The WPF Phase 8 smoke did not create its GUI validation result.'
+        throw 'The WPF Phase 9 smoke did not create its GUI validation result.'
     }
     $liveDiagnostic = Get-Content -LiteralPath $diagnosticPath -Raw | ConvertFrom-Json
     $guiValidation = Get-Content -LiteralPath $guiValidationPath -Raw | ConvertFrom-Json
@@ -236,18 +284,22 @@ try {
         throw 'QuietShield-owned firewall rules were unexpectedly detected.'
     }
     if ([string]$guiValidation.Status -cne 'Passed') {
-        throw ('Phase 8 GUI validation failed: ' + (@($guiValidation.Errors) -join ' | '))
+        throw ('Phase 9 GUI validation failed: ' + (@($guiValidation.Errors) -join ' | '))
     }
-    $phase7GuiValidation = $guiValidation.Phase7Baseline
+    $phase8GuiValidation = $guiValidation.Phase8Baseline
+    if ([string]$phase8GuiValidation.Status -cne 'Passed') {
+        throw ('The preserved Phase 8 GUI baseline failed during Phase 9 validation: ' + (@($phase8GuiValidation.Errors) -join ' | '))
+    }
+    $phase7GuiValidation = $phase8GuiValidation.Phase7Baseline
     if ([string]$phase7GuiValidation.Status -cne 'Passed') {
-        throw ('The preserved Phase 7 GUI baseline failed during Phase 8 validation: ' + (@($phase7GuiValidation.Errors) -join ' | '))
+        throw ('The preserved Phase 7 GUI baseline failed during Phase 9 validation: ' + (@($phase7GuiValidation.Errors) -join ' | '))
     }
     $phase6GuiValidation = $phase7GuiValidation.Phase6Baseline
     if ([string]$phase6GuiValidation.Status -cne 'Passed') {
-        throw ('The preserved Phase 6 GUI baseline failed during Phase 8 validation: ' + (@($phase6GuiValidation.Errors) -join ' | '))
+        throw ('The preserved Phase 6 GUI baseline failed during Phase 9 validation: ' + (@($phase6GuiValidation.Errors) -join ' | '))
     }
     if ([int]$phase6GuiValidation.PageCount -ne 17) {
-        throw ('Phase 8 GUI validation did not navigate every planned page. Count=' + [string]$phase6GuiValidation.PageCount)
+        throw ('Phase 9 GUI validation did not navigate every planned page. Count=' + [string]$phase6GuiValidation.PageCount)
     }
     if (@($phase6GuiValidation.Resolutions).Count -ne 3 -or @($phase6GuiValidation.Resolutions | Where-Object { -not [bool]$_.Passed }).Count -ne 0) {
         throw 'Phase 6 GUI validation did not pass every required window resolution.'
@@ -267,11 +319,14 @@ try {
     }
 
     foreach ($requiredPhase8Flag in @('TransactionPlanSmokePassed', 'PlanExportSmokePassed', 'BackupRollbackReadinessPassed', 'PlanViewerVirtualized', 'MisleadingEnforcementControlsAbsent', 'InactiveBannerPassed', 'LongTextAffordancesPassed', 'UpdatedPageResponsive')) {
-        if (-not [bool]$guiValidation.$requiredPhase8Flag) {
+        if (-not [bool]$phase8GuiValidation.$requiredPhase8Flag) {
             throw ('Phase 8 GUI validation flag failed: ' + $requiredPhase8Flag)
         }
     }
-    if (-not (Test-Path -LiteralPath $planExportPath -PathType Leaf)) { throw 'The WPF Phase 8 smoke did not export its requested read-only plan.' }
+    foreach ($requiredPhase9Flag in @('RehearsalStatusSectionPassed', 'DedicatedTestBannerPassed', 'PermanentEnforcementInactive', 'MisleadingPermanentControlsAbsent', 'Responsive')) {
+        if (-not [bool]$guiValidation.$requiredPhase9Flag) { throw ('Phase 9 GUI validation flag failed: ' + $requiredPhase9Flag) }
+    }
+    if (-not (Test-Path -LiteralPath $planExportPath -PathType Leaf)) { throw 'The WPF Phase 9 smoke did not export its requested read-only plan.' }
     $exportedPlan = Get-Content -LiteralPath $planExportPath -Raw | ConvertFrom-Json
     if ([bool]$exportedPlan.canExecute) { throw 'The exported Phase 8 plan unexpectedly permits execution.' }
 
@@ -319,7 +374,9 @@ try {
     $after = Get-QuietShieldSafetySnapshot
     $after | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $postStatePath -Encoding UTF8
     $attemptRecordsHashAfter = if (Test-Path -LiteralPath $attemptRecordsPath -PathType Leaf) { (Get-FileHash -LiteralPath $attemptRecordsPath -Algorithm SHA256).Hash } else { '[absent]' }
+    $firewallAttemptRecordsHashAfter = if (Test-Path -LiteralPath $firewallAttemptRecordsPath -PathType Leaf) { (Get-FileHash -LiteralPath $firewallAttemptRecordsPath -Algorithm SHA256).Hash } else { '[absent]' }
     if ($attemptRecordsHashBefore -cne $attemptRecordsHashAfter) { throw 'Dry validation changed the append-only rehearsal attempt records.' }
+    if ($firewallAttemptRecordsHashBefore -cne $firewallAttemptRecordsHashAfter) { throw 'Dry validation changed the append-only Firewall rehearsal attempt records.' }
     if ($after.IsAdministrator) {
         throw 'Validation unexpectedly ran with Administrator elevation.'
     }
@@ -327,14 +384,13 @@ try {
         throw 'A QuietShield Windows service was registered during validation.'
     }
 
-    foreach ($property in @('QuietShieldServiceHash', 'FirewallHash', 'DnsHash', 'AdapterHash', 'StartupHash', 'QuietShieldWfpHash', 'QuietShieldRegistryHash')) {
-        if ($before.$property -ne $after.$property) {
-            throw ("Safety snapshot changed during validation: {0}" -f $property)
-        }
+    $safetyComparison = Compare-QuietShieldSafetySnapshots -Before $before -After $after
+    if (-not [bool]$safetyComparison.PersistentMatch) {
+        throw ('Persistent safety snapshot changed during validation: ' + (@($safetyComparison.PersistentDifferences) -join ', '))
     }
 
     $validation = [ordered]@{
-        schemaVersion = 8
+        schemaVersion = 9
         timestamp = (Get-Date).ToString('o')
         status = 'Passed'
         powershellVersion = $PSVersionTable.PSVersion.ToString()
@@ -387,7 +443,7 @@ try {
         phase6GuiValidation = $phase6GuiValidation
         phase7ProgramConnectionLock = $phase7GuiValidation
         phase8ProgramLockTransaction = [ordered]@{
-            gui = $guiValidation
+            gui = $phase8GuiValidation
             planExport = $planExportPath
             transactionDryRun = $programLockDryRunPath
             deterministicPlanGeneration = 'Passed'
@@ -397,6 +453,18 @@ try {
             emergencyRestoreWhatIf = 'Passed'
             modifyingWindowsImplementationRegistered = $false
             realEnforcement = $false
+        }
+        phase9FirewallRehearsal = [ordered]@{
+            gui = $guiValidation
+            probeExecutable = $probePath
+            dryTransactionState = $phase9DryStatePath
+            endpoint = ([string]$phase9DryState.rule.remoteAddress + ':443')
+            probePreBlockSuccess = 'Passed'
+            watchdogSimulation = $phase9WatchdogSimulation
+            restoreWhatIf = 'Passed'
+            temporaryFirewallRuleCreated = $false
+            realRehearsal = 'NotRunPendingExplicitApproval'
+            attemptRecordsUnchanged = $true
         }
         detected = [ordered]@{
             applicationCount = [int]$liveDiagnostic.applicationTotal
@@ -415,7 +483,7 @@ try {
             status = 'Passed'
             exitCode = $applicationProcess.ExitCode
             executable = $appPath
-            phase = 'Phase8ProgramConnectionLockTransactionFramework'
+            phase = 'Phase9ControlledProgramLockFirewallRehearsalDryValidation'
         }
         safety = [ordered]@{
             administrator = $after.IsAdministrator
@@ -423,6 +491,9 @@ try {
             firewallUnchanged = $true
             dnsUnchanged = $true
             adaptersUnchanged = $true
+            adapterIdentityUnchanged = $true
+            adapterConfigurationUnchanged = $true
+            adapterOperationalEvents = @($safetyComparison.AdapterOperationalEvents)
             startupUnchanged = $true
             quietShieldWfpUnchanged = $true
             quietShieldRegistryUnchanged = $true
@@ -433,7 +504,7 @@ try {
         logPath = $logPath
     }
 
-    $validation | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $resultPath -Encoding UTF8
+    $validation | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $resultPath -Encoding UTF8
     Write-Output ("Validation succeeded. Tests: {0}/{1}. Result: {2}" -f $passedCount, $testCount, $resultPath)
 }
 catch {

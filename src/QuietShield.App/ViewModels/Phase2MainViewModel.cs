@@ -185,7 +185,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsLicensing => SelectedPage.Title == "Licensing";
     public bool IsSettings => SelectedPage.Title == "Settings";
     public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsProtectionProfiles || IsSchedules || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings);
-    public string VersionText { get; } = "Version 0.8.0 - Program Connection Lock Transaction Framework";
+    public string VersionText { get; } = "Version 0.9.0 - Controlled Firewall Rehearsal Foundation";
     public string FoundationMode { get; } = "Foundation Mode";
     public string ProtectionState { get; } = "Protection Not Activated";
     public string ActiveProfile { get; } = "Simulation only";
@@ -307,6 +307,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         };
         FirewallSummary = bundle.Firewall is null ? "Firewall discovery unavailable" :
             string.Join(", ", bundle.Firewall.Profiles.Select(static item => $"{item.Profile}: {(item.Enabled ? "On" : "Off")}")) + $"; QuietShield rules: {bundle.Firewall.QuietShieldOwnedRuleCount}";
+        UpdateProgramLockFirewallRehearsalReadiness();
         DnsSummary = bundle.Dns is null ? "DNS discovery unavailable" :
             $"{bundle.Dns.Adapters.Count} adapter configuration(s); encrypted DNS capability: {bundle.Dns.EncryptedDnsCapability}; QuietShield DNS Protection: {bundle.Dns.QuietShieldProtectionState}";
         ApplicationCount = bundle.Applications.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);

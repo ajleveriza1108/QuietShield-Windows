@@ -60,6 +60,7 @@ public sealed class RepositoryArchitectureTests
         var expected = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
             ["QuietShield.App"] = new[] { "QuietShield.Core", "QuietShield.Licensing", "QuietShield.Windows" },
+            ["QuietShield.ConnectionProbe"] = Array.Empty<string>(),
             ["QuietShield.Core"] = Array.Empty<string>(),
             ["QuietShield.Licensing"] = Array.Empty<string>(),
             ["QuietShield.Service"] = new[] { "QuietShield.Core", "QuietShield.Windows" },
@@ -162,6 +163,16 @@ public sealed class RepositoryArchitectureTests
                 if (new[] { "Restore-OriginalDns.ps1", "Restore-RehearsalDns.ps1", "Invoke-DnsActivationRehearsal.ps1" }
                         .Contains(Path.GetFileName(script), StringComparer.OrdinalIgnoreCase) &&
                     fragment.Equals("Set-DnsClient", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                if (Path.GetFileName(script).Equals("Invoke-ProgramLockFirewallRehearsal.ps1", StringComparison.OrdinalIgnoreCase) &&
+                    fragment.Equals("New-NetFirewall", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                if (Path.GetFileName(script).Equals("Restore-ProgramLockRehearsal.ps1", StringComparison.OrdinalIgnoreCase) &&
+                    fragment.Equals("Remove-NetFirewall", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -859,6 +870,213 @@ public sealed class RepositoryArchitectureTests
         StringAssert.Contains(output, "WhatIfPassed");
         StringAssert.Contains(output, "ModifyingImplementationAvailable");
         StringAssert.Contains(output, "False");
+    }
+
+    [TestMethod]
+    public void Phase9ProbeAcceptsOnlyLiteralIpAndOneTcpAttemptWithoutContentCollection()
+    {
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.ConnectionProbe", "Program.cs"));
+        foreach (var required in new[] { "IPAddress.TryParse", "TcpClient", "ConnectAsync", "ConnectionSucceeded = 0", "ConnectionBlockedOrTimedOut = 10", "InvalidArguments = 20", "InternalError = 30" })
+            StringAssert.Contains(source, required);
+        foreach (var forbidden in new[] { "Dns.", "GetHost", "HttpClient", "HttpRequest", "Cookie", "Credential", "Authorization", "while (", "for (;;" })
+            Assert.IsFalse(source.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"The dedicated probe contains prohibited behavior: {forbidden}.");
+    }
+
+    [TestMethod]
+    public void Phase9FirewallMutationSurfaceIsNarrowExactAndNeverSelfElevates()
+    {
+        var scripts = Path.Combine(RepositoryRoot, "scripts");
+        var invoke = File.ReadAllText(Path.Combine(scripts, "Invoke-ProgramLockFirewallRehearsal.ps1"));
+        var restore = File.ReadAllText(Path.Combine(scripts, "Restore-ProgramLockRehearsal.ps1"));
+        var watchdog = File.ReadAllText(Path.Combine(scripts, "Watch-ProgramLockFirewallRehearsal.ps1"));
+        var watchdogCommon = File.ReadAllText(Path.Combine(scripts, "ProgramLockRehearsal.Script.Common.ps1"));
+        foreach (var source in new[] { invoke, restore, watchdog })
+        {
+            Assert.IsFalse(source.Contains("-Verb RunAs", StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(source.Contains("requireAdministrator", StringComparison.OrdinalIgnoreCase));
+            foreach (var forbidden in new[] { "Set-DnsClient", "Set-NetAdapter", "Fwpm", "New-Service", "Set-Service", "Registry", "Certificate" })
+                Assert.IsFalse(source.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"The Phase 9 rehearsal contains unrelated mutation: {forbidden}.");
+        }
+        StringAssert.Contains(invoke, "ApprovedTemporaryFirewallRehearsal");
+        StringAssert.Contains(invoke, "Test-QuietShieldProgramLockRehearsalDescription -Description $description -TransactionId $transactionId");
+        StringAssert.Contains(invoke, "New-NetFirewallRule -Name $ruleName -DisplayName $ruleName");
+        StringAssert.Contains(invoke, "-Direction Outbound -Action Block -Enabled True -Profile Any -Program $probePath -Protocol TCP");
+        StringAssert.Contains(invoke, "-RemotePort 443 -LocalAddress Any -LocalPort Any -EdgeTraversalPolicy Block");
+        Assert.AreEqual(1, System.Text.RegularExpressions.Regex.Count(invoke, "New-NetFirewallRule", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+        StringAssert.Contains(restore, "Remove-NetFirewallRule -Name ([string]$state.rule.name)");
+        StringAssert.Contains(restore, "[switch]$ApprovedWatchdogCleanup");
+        StringAssert.Contains(restore, "ApprovedOrchestratorRollback or ApprovedWatchdogCleanup");
+        StringAssert.Contains(restore, "$ConfirmPreference = 'None'");
+        StringAssert.Contains(restore, "Remove-NetFirewallRule -Name ([string]$state.rule.name) -Confirm:$false");
+        StringAssert.Contains(restore, "Local\\QuietShield.ProgramLock.Rehearsal.");
+        StringAssert.Contains(restore, "$rollbackMutex.WaitOne");
+        Assert.AreEqual(2, System.Text.RegularExpressions.Regex.Count(restore, "Test-QuietShieldProgramLockRehearsalState -StatePath \\$StatePath"),
+            "Exact rollback must revalidate transaction state after acquiring exclusive ownership.");
+        Assert.IsFalse(restore.Contains("Remove-NetFirewallRule -DisplayName", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(restore.Contains("Get-NetFirewallRule -DisplayName", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(restore, @"Remove-NetFirewallRule[^\r\n]*\*", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+        StringAssert.Contains(watchdog + watchdogCommon, "ParentProcessLost");
+        StringAssert.Contains(watchdog + watchdogCommon, "HeartbeatLost");
+        StringAssert.Contains(watchdog + watchdogCommon, "DeadlineExpired");
+    }
+
+    [TestMethod]
+    public void Phase9WatchdogCannotRegisterAServiceOrRemoveBroadRules()
+    {
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "Watch-ProgramLockFirewallRehearsal.ps1"));
+        foreach (var forbidden in new[] { "UseWindowsService", "ServiceInstaller", "sc.exe", "New-Service", "Get-NetFirewallRule -DisplayName", "Remove-NetFirewallRule" })
+            Assert.IsFalse(source.Contains(forbidden, StringComparison.OrdinalIgnoreCase));
+        StringAssert.Contains(source, "Restore-ProgramLockRehearsal.ps1");
+        StringAssert.Contains(source, "ApprovedWatchdogCleanup");
+        Assert.IsFalse(source.Contains("-Confirm:$false", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void Phase9WatchdogUsesExplicitUtcDateTimeOffsetAndPassesReadOnlySimulations()
+    {
+        var scripts = Path.Combine(RepositoryRoot, "scripts");
+        var watchdog = File.ReadAllText(Path.Combine(scripts, "Watch-ProgramLockFirewallRehearsal.ps1"));
+        var common = File.ReadAllText(Path.Combine(scripts, "ProgramLockRehearsal.Script.Common.ps1"));
+        var invoke = File.ReadAllText(Path.Combine(scripts, "Invoke-ProgramLockFirewallRehearsal.ps1"));
+        StringAssert.Contains(watchdog, "Get-QuietShieldProgramLockWatchdogTrigger");
+        Assert.IsFalse(watchdog.Contains("(Get-Date).ToUniversalTime() -ge [DateTimeOffset]", StringComparison.Ordinal));
+        StringAssert.Contains(common, "function ConvertTo-QuietShieldUtcDateTimeOffset");
+        StringAssert.Contains(common, "[DateTimeKind]::Unspecified");
+        StringAssert.Contains(common, "[DateTimeKind]::Utc");
+        StringAssert.Contains(common, "function Get-QuietShieldProgramLockWatchdogTrigger");
+        StringAssert.Contains(common, "function Test-QuietShieldProgramLockWatchdogCompletionEvidence");
+        StringAssert.Contains(invoke, "Watchdog did not exit within the bounded cleanup timeout");
+        StringAssert.Contains(watchdog, "-ApprovedWatchdogCleanup -EvidencePath $EvidencePath");
+        StringAssert.Contains(invoke, "-ApprovedOrchestratorRollback -EvidencePath $evidencePath");
+        Assert.IsFalse(watchdog.Contains("-Confirm:$false", StringComparison.Ordinal));
+        Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(watchdog, @"powershell\.exe[^\r\n]*-File[^\r\n]*-Confirm", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+        Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(invoke, @"powershell\.exe[^\r\n]*-File[^\r\n]*-Confirm", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+        var waitIndex = invoke.IndexOf("$watchdog.WaitForExit(15000)", StringComparison.Ordinal);
+        var refreshIndex = invoke.IndexOf("$watchdog.Refresh()", waitIndex, StringComparison.Ordinal);
+        var hasExitedIndex = invoke.IndexOf("$watchdog.HasExited", refreshIndex, StringComparison.Ordinal);
+        var exitCodeIndex = invoke.IndexOf("$watchdog.ExitCode", hasExitedIndex, StringComparison.Ordinal);
+        Assert.IsTrue(waitIndex >= 0 && refreshIndex > waitIndex && hasExitedIndex > refreshIndex && exitCodeIndex > hasExitedIndex,
+            "Watchdog ExitCode must only be read after bounded WaitForExit, Refresh, and HasExited verification.");
+        StringAssert.Contains(invoke, "Test-QuietShieldProgramLockWatchdogCompletionEvidence");
+        StringAssert.Contains(invoke, "One or more QuietShield rehearsal rules remain after watchdog cleanup.");
+
+        var start = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-ExecutionPolicy");
+        start.ArgumentList.Add("Bypass");
+        start.ArgumentList.Add("-File");
+        start.ArgumentList.Add(Path.Combine(scripts, "Test-ProgramLockWatchdogSimulations.ps1"));
+        using var process = System.Diagnostics.Process.Start(start);
+        Assert.IsNotNull(process);
+        Assert.IsTrue(process.WaitForExit(15_000), "Phase 9 watchdog simulations timed out.");
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        Assert.AreEqual(0, process.ExitCode, error);
+        foreach (var required in new[]
+                 {
+                     "utcDateTimeConversion", "localDateTimeConversion", "unspecifiedDateTimeConversion",
+                     "subSecondDeadlineCleanup", "heartbeatLossCleanup", "orchestratorLossCleanup", "explicitWatchdogApprovalRequired",
+                     "malformedTransactionRefused", "foreignTransactionRefused", "exitCodeUnavailableBeforeExit",
+                     "successfulExitAfterBoundedWait", "boundedProcessExitTimeout", "validWatchdogCleanupEvidence",
+                     "nonzeroWatchdogExit", "zeroRemainingRehearsalRules", "exactRuleRemovalOnly"
+                 })
+            StringAssert.Contains(output, required);
+    }
+
+    [TestMethod]
+    public void Phase9ProtectedStateSeparatesOnlyOperationalStatusAndKeepsConfigurationStrict()
+    {
+        var scripts = Path.Combine(RepositoryRoot, "scripts");
+        var common = File.ReadAllText(Path.Combine(scripts, "QuietShield.Script.Common.ps1"));
+        var configurationStart = common.IndexOf("function ConvertTo-QuietShieldCanonicalAdapterConfigurationData", StringComparison.Ordinal);
+        var operationalStart = common.IndexOf("function ConvertTo-QuietShieldCanonicalAdapterOperationalData", configurationStart, StringComparison.Ordinal);
+        Assert.IsTrue(configurationStart >= 0 && operationalStart > configurationStart);
+        var configuration = common[configurationStart..operationalStart];
+        Assert.IsFalse(configuration.Contains("ConnectionState", StringComparison.Ordinal));
+        foreach (var required in new[] { "InterfaceIndex", "AddressFamily", "Dhcp", "RouterDiscovery", "NlMtu" })
+            StringAssert.Contains(configuration, required);
+        foreach (var required in new[]
+                 {
+                     "AdapterIdentityHash", "AdapterConfigurationHash", "AdapterOperationalHash", "AdapterOperationalState",
+                     "QuietShieldFirewallRuleHash", "EnvironmentalAdapterOperationalTransition", "VpnOrVirtual",
+                     "Surfshark/OpenVPN must remain disconnected", "PersistentDifferences"
+                 })
+            StringAssert.Contains(common, required);
+
+        var simulation = File.ReadAllText(Path.Combine(scripts, "Test-ProgramLockWatchdogSimulations.ps1"));
+        foreach (var required in new[]
+                 {
+                     "vpnOperationalTransitionReporting", "persistentAdapterConfigurationValidation",
+                     "dnsConfigurationValidation", "quietShieldFirewallRuleValidation"
+                 })
+            StringAssert.Contains(simulation, required);
+    }
+
+    [TestMethod]
+    public void Phase9RootLaunchersUsePowerShell51AndNeverElevate()
+    {
+        foreach (var launcherName in new[] { "Run-ProgramLock-Rehearsal.bat", "Show-ProgramLock-Rehearsal-State.bat", "Emergency-Restore-ProgramLock-Rehearsal.bat" })
+        {
+            var launcher = File.ReadAllText(Path.Combine(RepositoryRoot, launcherName));
+            StringAssert.Contains(launcher, "powershell.exe -NoProfile -ExecutionPolicy Bypass -File");
+            Assert.IsFalse(launcher.Contains("RunAs", StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    [TestMethod]
+    public void Phase9PowerShellUsesFrameworkCompatiblePathValidation()
+    {
+        var common = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "ProgramLockRehearsal.Script.Common.ps1"));
+        StringAssert.Contains(common, "[IO.Path]::IsPathRooted");
+        Assert.IsFalse(common.Contains("IsPathFullyQualified", StringComparison.Ordinal));
+        StringAssert.Contains(common, "Get-QuietShieldProgramLockRehearsalHash");
+        StringAssert.Contains(common, "Test-QuietShieldProgramLockRehearsalState");
+    }
+
+    [TestMethod]
+    public void Phase9DnsSafetySnapshotCanonicalizesRowsWithoutChangingServerOrderOrDuplicates()
+    {
+        var common = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "QuietShield.Script.Common.ps1"));
+        var start = common.IndexOf("function ConvertTo-QuietShieldCanonicalDnsSnapshotData", StringComparison.Ordinal);
+        var end = common.IndexOf("function Get-QuietShieldSafetySnapshot", start, StringComparison.Ordinal);
+        Assert.IsTrue(start >= 0 && end > start, "The DNS snapshot canonicalizer was not found.");
+        var canonicalizer = common[start..end];
+
+        StringAssert.Contains(canonicalizer, "Sort-Object -Property InterfaceIndex, AddressFamily");
+        StringAssert.Contains(canonicalizer, "foreach ($serverAddress in @($row.ServerAddresses))");
+        StringAssert.Contains(canonicalizer, "ServerAddresses = $serverAddresses");
+        Assert.IsFalse(canonicalizer.Contains("Select-Object -Unique", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(canonicalizer.Contains("Sort-Object $serverAddresses", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void Phase9GuiStatusIsResponsiveExplicitAndHasNoPermanentEnforcementAction()
+    {
+        var page = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages", "ProgramConnectionLockPage.xaml"));
+        foreach (var required in new[]
+                 {
+                     "Temporary dedicated test only. No installed application will be blocked.", "Controlled Firewall rehearsal status",
+                     "Firewall capability", "Test executable readiness", "Reachable endpoint readiness", "Backup readiness", "Watchdog readiness",
+                     "Last rehearsal result", "Last rollback result", "Permanent enforcement", "AdaptiveGridPanel"
+                 })
+            StringAssert.Contains(page, required);
+        foreach (var prohibited in new[] { "Content=\"Apply\"", "Content=\"Enforce\"", "Content=\"Run Rehearsal\"" })
+            Assert.IsFalse(page.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
+
+        var validator = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Phase9GuiValidator.cs"));
+        foreach (var required in new[]
+                 {
+                     "Phase8GuiValidator.ValidateAsync", "RehearsalStatusSectionPassed", "DedicatedTestBannerPassed",
+                     "PermanentEnforcementInactive", "MisleadingPermanentControlsAbsent", "1024d, 640d", "ScrollableWidth"
+                 })
+            StringAssert.Contains(validator, required);
     }
 
     private static string FindRepositoryRoot()

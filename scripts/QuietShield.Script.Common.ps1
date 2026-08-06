@@ -120,8 +120,10 @@ function Get-QuietShieldVisualStudio2026Instance {
 }
 
 function Assert-QuietShieldToolchain {
-    $sdkVersion = (& dotnet --version | Select-Object -First 1).Trim()
-    if ($LASTEXITCODE -ne 0 -or $sdkVersion -ne '10.0.302') {
+    $sdkVersionOutput = @(& dotnet --version)
+    $sdkExitCode = $LASTEXITCODE
+    $sdkVersion = ([string]($sdkVersionOutput | Select-Object -First 1)).Trim()
+    if ($sdkExitCode -ne 0 -or $sdkVersion -ne '10.0.302') {
         throw ("Expected .NET SDK 10.0.302; actual: {0}" -f $sdkVersion)
     }
 
@@ -156,10 +158,243 @@ function Get-QuietShieldStringHash {
     }
 }
 
+function ConvertTo-QuietShieldCanonicalDnsSnapshotData {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$Rows
+    )
+
+    $canonicalRows = @()
+    foreach ($row in @($Rows)) {
+        $serverAddresses = @()
+        foreach ($serverAddress in @($row.ServerAddresses)) {
+            $serverAddresses += [string]$serverAddress
+        }
+
+        $canonicalRows += [pscustomobject][ordered]@{
+            InterfaceIndex = [int]$row.InterfaceIndex
+            AddressFamily = [int]$row.AddressFamily
+            ServerAddresses = $serverAddresses
+        }
+    }
+
+    return @($canonicalRows | Sort-Object -Property InterfaceIndex, AddressFamily)
+}
+
+function ConvertTo-QuietShieldCanonicalAdapterIdentityData {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$Rows
+    )
+
+    $canonicalRows = @()
+    foreach ($row in @($Rows)) {
+        $canonicalRows += [pscustomobject][ordered]@{
+            InterfaceGuid = [string]$row.InterfaceGuid
+            InterfaceIndex = [int]$row.InterfaceIndex
+            Name = [string]$row.Name
+            InterfaceDescription = [string]$row.InterfaceDescription
+        }
+    }
+    return @($canonicalRows | Sort-Object -Property InterfaceGuid, InterfaceIndex, Name)
+}
+
+function ConvertTo-QuietShieldCanonicalAdapterConfigurationData {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$Rows
+    )
+
+    $canonicalRows = @()
+    foreach ($row in @($Rows)) {
+        $canonicalRows += [pscustomobject][ordered]@{
+            InterfaceIndex = [int]$row.InterfaceIndex
+            AddressFamily = [int]$row.AddressFamily
+            Dhcp = [int]$row.Dhcp
+            RouterDiscovery = [int]$row.RouterDiscovery
+            NlMtu = [uint32]$row.NlMtu
+        }
+    }
+    return @($canonicalRows | Sort-Object -Property InterfaceIndex, AddressFamily)
+}
+
+function ConvertTo-QuietShieldCanonicalAdapterOperationalData {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$Rows
+    )
+
+    $canonicalRows = @()
+    foreach ($row in @($Rows)) {
+        $canonicalRows += [pscustomobject][ordered]@{
+            InterfaceGuid = [string]$row.InterfaceGuid
+            InterfaceIndex = [int]$row.InterfaceIndex
+            Name = [string]$row.Name
+            InterfaceDescription = [string]$row.InterfaceDescription
+            Status = [string]$row.Status
+        }
+    }
+    return @($canonicalRows | Sort-Object -Property InterfaceGuid, InterfaceIndex, Name)
+}
+
+function Test-QuietShieldVpnOrVirtualAdapter {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)]$Adapter)
+
+    $identity = ([string]$Adapter.Name + ' ' + [string]$Adapter.InterfaceDescription)
+    return $identity -match '(?i)(vpn|openvpn|surfshark|tap-windows|wireguard|tailscale|zerotier|virtual|wi-fi direct|hyper-v|vmware|virtualbox|wsl|docker|tunnel)'
+}
+
+function Test-QuietShieldSurfsharkOrOpenVpnAdapter {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)]$Adapter)
+
+    $identity = ([string]$Adapter.Name + ' ' + [string]$Adapter.InterfaceDescription)
+    return $identity -match '(?i)(surfshark|openvpn)'
+}
+
+function Get-QuietShieldVpnAndVirtualAdapterOperationalState {
+    [CmdletBinding()]
+    param()
+
+    $adapters = @(Get-NetAdapter -IncludeHidden -ErrorAction Stop | Where-Object { Test-QuietShieldVpnOrVirtualAdapter -Adapter $_ })
+    return @(ConvertTo-QuietShieldCanonicalAdapterOperationalData -Rows $adapters)
+}
+
+function Assert-QuietShieldSurfsharkAndOpenVpnDisconnected {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][object[]]$OperationalState)
+
+    $connected = @($OperationalState | Where-Object {
+        (Test-QuietShieldSurfsharkOrOpenVpnAdapter -Adapter $_) -and [string]$_.Status -notin @('Disconnected', 'Disabled', 'Not Present')
+    })
+    if ($connected.Count -ne 0) {
+        throw ('Surfshark/OpenVPN must remain disconnected for the Firewall rehearsal. Active adapter: ' + [string]$connected[0].Name)
+    }
+}
+
+function Test-QuietShieldVpnAndVirtualAdapterStability {
+    [CmdletBinding()]
+    param([ValidateRange(15, 60)][int]$DurationSeconds = 15)
+
+    $initial = @(Get-QuietShieldVpnAndVirtualAdapterOperationalState)
+    Assert-QuietShieldSurfsharkAndOpenVpnDisconnected -OperationalState $initial
+    $initialHash = Get-QuietShieldStringHash (($initial | ConvertTo-Json -Depth 5 -Compress) -join '')
+    $stopwatch = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        while ($stopwatch.Elapsed.TotalSeconds -lt $DurationSeconds) {
+            Start-Sleep -Milliseconds 500
+            $observed = @(Get-QuietShieldVpnAndVirtualAdapterOperationalState)
+            Assert-QuietShieldSurfsharkAndOpenVpnDisconnected -OperationalState $observed
+            $observedHash = Get-QuietShieldStringHash (($observed | ConvertTo-Json -Depth 5 -Compress) -join '')
+            if ($observedHash -cne $initialHash) {
+                throw 'A VPN or virtual-adapter operational state changed during the required stability window.'
+            }
+        }
+    }
+    finally {
+        $stopwatch.Stop()
+    }
+
+    return [pscustomobject][ordered]@{
+        Stable = $true
+        DurationSeconds = $DurationSeconds
+        StateHash = $initialHash
+        SurfsharkOpenVpnDisconnected = $true
+        Adapters = $initial
+    }
+}
+
+function Get-QuietShieldAdapterOperationalEvents {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][object[]]$Before,
+        [Parameter(Mandatory = $true)][object[]]$After
+    )
+
+    $beforeByKey = @{}
+    $afterByKey = @{}
+    foreach ($row in @($Before)) {
+        $key = [string]$row.InterfaceGuid
+        if ([string]::IsNullOrWhiteSpace($key)) { $key = ([string]$row.InterfaceIndex + '|' + [string]$row.Name) }
+        $beforeByKey[$key] = $row
+    }
+    foreach ($row in @($After)) {
+        $key = [string]$row.InterfaceGuid
+        if ([string]::IsNullOrWhiteSpace($key)) { $key = ([string]$row.InterfaceIndex + '|' + [string]$row.Name) }
+        $afterByKey[$key] = $row
+    }
+
+    $events = @()
+    $keys = @($beforeByKey.Keys + $afterByKey.Keys | Sort-Object -Unique)
+    foreach ($key in $keys) {
+        $beforeRow = $beforeByKey[$key]
+        $afterRow = $afterByKey[$key]
+        $beforeStatus = '[absent]'
+        if ($null -ne $beforeRow) { $beforeStatus = [string]$beforeRow.Status }
+        $afterStatus = '[absent]'
+        if ($null -ne $afterRow) { $afterStatus = [string]$afterRow.Status }
+        if ($beforeStatus -ceq $afterStatus) { continue }
+        $identity = $beforeRow
+        if ($null -ne $afterRow) { $identity = $afterRow }
+        $classification = 'PhysicalOrOther'
+        if (Test-QuietShieldVpnOrVirtualAdapter -Adapter $identity) { $classification = 'VpnOrVirtual' }
+        $events += [pscustomobject][ordered]@{
+            Event = 'EnvironmentalAdapterOperationalTransition'
+            InterfaceGuid = [string]$identity.InterfaceGuid
+            InterfaceIndex = [int]$identity.InterfaceIndex
+            AdapterName = [string]$identity.Name
+            Classification = $classification
+            BeforeStatus = $beforeStatus
+            AfterStatus = $afterStatus
+        }
+    }
+    return @($events)
+}
+
+function Compare-QuietShieldSafetySnapshots {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]$Before,
+        [Parameter(Mandatory = $true)]$After
+    )
+
+    $persistentProperties = @(
+        'QuietShieldServiceHash', 'FirewallHash', 'QuietShieldFirewallRuleHash', 'DnsHash',
+        'AdapterIdentityHash', 'AdapterConfigurationHash', 'StartupHash', 'QuietShieldWfpHash', 'QuietShieldRegistryHash'
+    )
+    $differences = @()
+    foreach ($property in $persistentProperties) {
+        $beforeProperty = $Before.PSObject.Properties[$property]
+        $afterProperty = $After.PSObject.Properties[$property]
+        if ($null -eq $beforeProperty -or $null -eq $afterProperty -or [string]$beforeProperty.Value -cne [string]$afterProperty.Value) {
+            $differences += $property
+        }
+    }
+    $events = @(Get-QuietShieldAdapterOperationalEvents -Before @($Before.AdapterOperationalState) -After @($After.AdapterOperationalState))
+    return [pscustomobject][ordered]@{
+        PersistentMatch = ($differences.Count -eq 0)
+        PersistentDifferences = $differences
+        AdapterOperationalChanged = ($events.Count -ne 0)
+        AdapterOperationalEvents = $events
+    }
+}
+
 function Get-QuietShieldSafetySnapshot {
     $firewallData = @()
     $dnsData = @()
-    $adapterData = @()
+    $adapterIdentityData = @()
+    $adapterConfigurationData = @()
+    $adapterOperationalData = @()
+    $quietShieldFirewallRuleData = @()
     $startupData = @()
     $wfpData = @()
     $quietShieldRegistryData = @()
@@ -172,20 +407,43 @@ function Get-QuietShieldSafetySnapshot {
     }
 
     try {
-        $dnsData = @(Get-DnsClientServerAddress -ErrorAction Stop | Select-Object InterfaceIndex, AddressFamily, ServerAddresses)
+        $quietShieldFirewallRuleData = @(
+            Get-NetFirewallRule -Name 'QuietShield.*' -ErrorAction SilentlyContinue |
+                Select-Object Name, DisplayName, Description, Enabled, Direction, Action, Profile, EdgeTraversalPolicy |
+                Sort-Object -Property Name
+        )
+    }
+    catch {
+        $quietShieldFirewallRuleData = @('Unavailable')
+    }
+
+    try {
+        $observedDnsData = @(Get-DnsClientServerAddress -ErrorAction Stop | Select-Object InterfaceIndex, AddressFamily, ServerAddresses)
+        $dnsData = @(ConvertTo-QuietShieldCanonicalDnsSnapshotData -Rows $observedDnsData)
     }
     catch {
         $dnsData = @('Unavailable')
     }
 
     try {
-        $adapterData = @(
-            Get-NetIPInterface -ErrorAction Stop |
-                Select-Object InterfaceIndex, AddressFamily, ConnectionState, Dhcp, RouterDiscovery, NlMtu
-        )
+        $adapterRows = @(Get-NetAdapter -IncludeHidden -ErrorAction Stop)
+        $adapterIdentityData = @(ConvertTo-QuietShieldCanonicalAdapterIdentityData -Rows $adapterRows)
+        $adapterOperationalData = @(ConvertTo-QuietShieldCanonicalAdapterOperationalData -Rows $adapterRows)
     }
     catch {
-        $adapterData = @('Unavailable')
+        $adapterIdentityData = @('Unavailable')
+        $adapterOperationalData = @('Unavailable')
+    }
+
+    try {
+        $adapterConfigurationRows = @(
+            Get-NetIPInterface -ErrorAction Stop |
+                Select-Object InterfaceIndex, AddressFamily, Dhcp, RouterDiscovery, NlMtu
+        )
+        $adapterConfigurationData = @(ConvertTo-QuietShieldCanonicalAdapterConfigurationData -Rows $adapterConfigurationRows)
+    }
+    catch {
+        $adapterConfigurationData = @('Unavailable')
     }
 
     foreach ($path in @(
@@ -239,13 +497,21 @@ function Get-QuietShieldSafetySnapshot {
         }
     }
 
+    $adapterIdentityHash = Get-QuietShieldStringHash (($adapterIdentityData | ConvertTo-Json -Depth 5 -Compress) -join '')
+    $adapterConfigurationHash = Get-QuietShieldStringHash (($adapterConfigurationData | ConvertTo-Json -Depth 5 -Compress) -join '')
+    $adapterOperationalHash = Get-QuietShieldStringHash (($adapterOperationalData | ConvertTo-Json -Depth 5 -Compress) -join '')
     return [pscustomobject]@{
         IsAdministrator = Test-QuietShieldAdministrator
         QuietShieldServiceCount = $services.Count
         QuietShieldServiceHash = Get-QuietShieldStringHash (($services | ConvertTo-Json -Depth 4 -Compress) -join '')
         FirewallHash = Get-QuietShieldStringHash (($firewallData | ConvertTo-Json -Depth 4 -Compress) -join '')
+        QuietShieldFirewallRuleHash = Get-QuietShieldStringHash (($quietShieldFirewallRuleData | ConvertTo-Json -Depth 5 -Compress) -join '')
         DnsHash = Get-QuietShieldStringHash (($dnsData | ConvertTo-Json -Depth 5 -Compress) -join '')
-        AdapterHash = Get-QuietShieldStringHash (($adapterData | ConvertTo-Json -Depth 4 -Compress) -join '')
+        AdapterHash = Get-QuietShieldStringHash ($adapterIdentityHash + '|' + $adapterConfigurationHash)
+        AdapterIdentityHash = $adapterIdentityHash
+        AdapterConfigurationHash = $adapterConfigurationHash
+        AdapterOperationalHash = $adapterOperationalHash
+        AdapterOperationalState = $adapterOperationalData
         StartupHash = Get-QuietShieldStringHash (($startupData | ConvertTo-Json -Depth 5 -Compress) -join '')
         QuietShieldWfpHash = Get-QuietShieldStringHash (($wfpData | ConvertTo-Json -Depth 4 -Compress) -join '')
         QuietShieldRegistryHash = Get-QuietShieldStringHash (($quietShieldRegistryData | ConvertTo-Json -Depth 5 -Compress) -join '')

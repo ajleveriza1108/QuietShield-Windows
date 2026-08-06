@@ -98,6 +98,24 @@ public partial class App : Application
             await viewModel.ExportValidationDiagnosticAsync(e.Args[diagnosticOutputIndex + 1], CancellationToken.None).ConfigureAwait(true);
         }
 
+        if (e.Args.Contains("--phase9-smoke", StringComparer.OrdinalIgnoreCase))
+        {
+            var validationOutput = GetArgumentValue(e.Args, "--gui-validation-output");
+            var planExportOutput = GetArgumentValue(e.Args, "--plan-export-output");
+            if (string.IsNullOrWhiteSpace(validationOutput) || string.IsNullOrWhiteSpace(planExportOutput))
+            {
+                throw new InvalidOperationException("Phase 9 GUI validation requires --gui-validation-output and --plan-export-output.");
+            }
+
+            var result = await Phase9GuiValidator.ValidateAsync(window, viewModel, planExportOutput).ConfigureAwait(true);
+            var directory = Path.GetDirectoryName(validationOutput);
+            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+            await File.WriteAllTextAsync(validationOutput, JsonSerializer.Serialize(result, GuiValidationSerializerOptions), CancellationToken.None).ConfigureAwait(true);
+            if (!string.Equals(result.Status, "Passed", StringComparison.Ordinal)) Environment.ExitCode = 2;
+            window.Close();
+            return;
+        }
+
         if (e.Args.Contains("--phase8-smoke", StringComparer.OrdinalIgnoreCase))
         {
             var validationOutput = GetArgumentValue(e.Args, "--gui-validation-output");
