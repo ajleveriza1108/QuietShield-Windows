@@ -8,6 +8,7 @@
             <StackPanel>
                 <TextBlock FontWeight="SemiBold" Text="Enforcement is not active. No Windows Firewall or WFP rule has been changed." />
                 <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Phase 8 previews deterministic transactions, verified backups, and rollback behavior. Every operation remains non-executable." />
+                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Phase 11 connects the desktop UI to the validated service status path. Blocked and Allowed on All were proven in controlled Phase 10B enforcement; customer application activation remains gated in Phase 11A." />
             </StackPanel>
         </Border>
         <Border Style="{StaticResource WarningBannerStyle}">

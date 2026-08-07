@@ -1,20 +1,21 @@
 using System.IO;
 using System.Text.Json;
+using System.Windows.Input;
 using QuietShield.Core.ServiceFoundation;
 
 namespace QuietShield.App.ViewModels;
 
 public sealed partial class MainViewModel
 {
-    private string _serviceInstallationStatus = "Not installed";
-    private string _serviceCommunicationStatus = "Diagnostic mode (not connected)";
-    private string _persistentEnforcementStatus = "Not active";
-    private string _serviceActiveProfile = "Unavailable until diagnostic communication succeeds";
-    private string _lastKnownGoodPolicyStatus = "Not yet queried";
-    private string _serviceTransactionStatus = "Not yet queried";
-    private string _serviceRecoveryReadiness = "Not yet queried";
-    private string _serviceInstalled = "No";
-    private string _serviceRunning = "No";
+    private string _serviceInstallationStatus = "Service endpoint not connected";
+    private string _serviceCommunicationStatus = "Not connected";
+    private string _persistentEnforcementStatus = "Not available until the service is running";
+    private string _serviceActiveProfile = "Unavailable";
+    private string _lastKnownGoodPolicyStatus = "Unavailable";
+    private string _serviceTransactionStatus = "Unavailable";
+    private string _serviceRecoveryReadiness = "Unavailable";
+    private string _serviceInstalled = "Unknown";
+    private string _serviceRunning = "Unknown";
     private string _serviceIpcConnected = "No";
     private string _persistentEnforcementAvailable = "No";
 
@@ -30,14 +31,39 @@ public sealed partial class MainViewModel
     public string ServiceIpcConnected { get => _serviceIpcConnected; private set => SetField(ref _serviceIpcConnected, value); }
     public string PersistentEnforcementAvailable { get => _persistentEnforcementAvailable; private set => SetField(ref _persistentEnforcementAvailable, value); }
 
-    private async Task InitializePersistentServiceFoundationAsync(CancellationToken cancellationToken)
+    public ICommand RefreshServiceStatusCommand { get; private set; } = null!;
+
+    private void InitializePhase11ServiceIntegration()
+    {
+        RefreshServiceStatusCommand = new AsyncRelayCommand(
+            () => RefreshPersistentServiceStatusAsync(CancellationToken.None));
+    }
+
+    private Task InitializePersistentServiceFoundationAsync(CancellationToken cancellationToken) =>
+        RefreshPersistentServiceStatusAsync(cancellationToken);
+
+    public async Task RefreshPersistentServiceStatusAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var response = await _serviceClient.SendAsync(ServiceMessageKind.GetServiceStatus, null, cancellationToken).ConfigureAwait(true);
-            if (response.Status != ServiceResponseStatus.Ok) return;
+            var response = await _serviceClient.SendAsync(
+                ServiceMessageKind.GetServiceStatus,
+                null,
+                cancellationToken).ConfigureAwait(true);
+
+            if (response.Status != ServiceResponseStatus.Ok)
+            {
+                ApplyUnavailableServiceStatus($"Service returned {response.Status}.");
+                return;
+            }
+
             var status = response.Payload.Deserialize<ServiceStatusSnapshot>(ServiceMessageSerializer.Options);
-            if (status is null) return;
+            if (status is null)
+            {
+                ApplyUnavailableServiceStatus("Service returned an empty status payload.");
+                return;
+            }
+
             ServiceInstallationStatus = status.InstallationStatus;
             ServiceCommunicationStatus = status.CommunicationStatus;
             PersistentEnforcementStatus = status.PersistentEnforcementStatus;
@@ -48,13 +74,35 @@ public sealed partial class MainViewModel
             ServiceInstalled = status.ServiceInstalled ? "Yes" : "No";
             ServiceRunning = status.ServiceRunning ? "Yes" : "No";
             ServiceIpcConnected = status.IpcConnected ? "Yes" : "No";
-            PersistentEnforcementAvailable = status.PersistentEnforcementAvailable ? "Yes — approved rehearsal only" : "No";
+            PersistentEnforcementAvailable = status.PersistentEnforcementAvailable
+                ? "Yes — validated service engine"
+                : "No";
         }
-        catch (Exception exception) when (exception is IOException or InvalidDataException or TimeoutException or OperationCanceledException)
+        catch (Exception exception) when (
+            exception is IOException or
+            InvalidDataException or
+            TimeoutException or
+            OperationCanceledException)
         {
-            ServiceCommunicationStatus = cancellationToken.IsCancellationRequested
-                ? "Diagnostic mode (query cancelled)"
-                : "Diagnostic mode (service endpoint unavailable)";
+            ApplyUnavailableServiceStatus(
+                cancellationToken.IsCancellationRequested
+                    ? "Service status query cancelled."
+                    : "Service endpoint unavailable.");
         }
+    }
+
+    private void ApplyUnavailableServiceStatus(string communication)
+    {
+        ServiceInstallationStatus = "Unavailable from IPC";
+        ServiceCommunicationStatus = communication;
+        PersistentEnforcementStatus = "Not available until the service is running";
+        ServiceActiveProfile = "Unavailable";
+        LastKnownGoodPolicyStatus = "Unavailable";
+        ServiceTransactionStatus = "Unavailable";
+        ServiceRecoveryReadiness = "Unavailable";
+        ServiceInstalled = "Unknown";
+        ServiceRunning = "No response";
+        ServiceIpcConnected = "No";
+        PersistentEnforcementAvailable = "No";
     }
 }

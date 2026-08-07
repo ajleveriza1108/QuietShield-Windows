@@ -115,6 +115,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _dnsRuntimeDiagnostic = dnsRuntimeDiagnostic;
         _dnsRehearsalReadinessDiscovery = dnsRehearsalReadinessDiscovery;
         _serviceClient = serviceClient;
+        InitializePhase11ServiceIntegration();
         _logger = logger;
         InitializeProgramConnectionLock(profileSelectionStore);
         InitializeProgramLockTransactions();
