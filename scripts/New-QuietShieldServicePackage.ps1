@@ -18,6 +18,7 @@ New-Item -ItemType Directory -Path $output -Force | Out-Null
 Invoke-QuietShieldCommand -FilePath 'dotnet' -ArgumentList @('publish', (Join-Path $root 'src\QuietShield.Service\QuietShield.Service.csproj'), '-c', 'Release', '--self-contained', 'false', '--no-restore', '-o', $output)
 $scriptOutput = Join-Path $output 'scripts'
 New-Item -ItemType Directory -Path $scriptOutput -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'QuietShield.Script.Common.ps1') -Destination $scriptOutput
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'ServiceActivation.Script.Common.ps1') -Destination $scriptOutput
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ServiceFirewallPolicy.ps1') -Destination $scriptOutput
 $files = @(Get-ChildItem -LiteralPath $output -File -Recurse | Sort-Object -Property FullName | ForEach-Object {

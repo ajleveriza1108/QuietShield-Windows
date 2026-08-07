@@ -50,6 +50,10 @@ if ($WhatIfPreference) {
 if (-not $ApprovedServiceEnforcement) { throw 'The exact Firewall operation requires -ApprovedServiceEnforcement.' }
 if (-not (Test-QuietShieldAdministrator)) { throw 'The exact Firewall operation requires Administrator rights and never self-elevates.' }
 
+# LocalSystem launches this helper with -NonInteractive. The immutable transaction,
+# explicit service-enforcement approval, and Administrator gates have already passed.
+$ConfirmPreference = 'None'
+
 $current = Get-ExactRuleSnapshot -ExactName ([string]$transaction.ruleName)
 if ($null -ne $current -and ([string]$current.ownershipMarker -cne 'QuietShield' -or [string]$current.name -cne [string]$transaction.ruleName)) { throw 'A foreign exact-name Firewall rule collision was refused.' }
 if ($null -ne $current -and [IO.Path]::GetFullPath([string]$current.programPath) -cne [IO.Path]::GetFullPath([string]$transaction.programPath)) { throw 'The exact rule targets a different program and was refused.' }

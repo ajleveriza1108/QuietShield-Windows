@@ -83,6 +83,13 @@ try {
     $packageOutput = & (Join-Path $PSScriptRoot 'New-QuietShieldServicePackage.ps1')
     $package = Test-QuietShieldServicePackage -PackageRoot (Join-Path $root 'artifacts\service-package\Release')
     if ([string]::IsNullOrWhiteSpace([string]$package.PayloadSha256)) { throw 'The exact service package did not validate.' }
+    $packagedHelper = Join-Path $package.Root 'scripts\Invoke-ServiceFirewallPolicy.ps1'
+    $packagedRule = 'QuietShield.ProgramLock.00000000000000000000000000000000'
+    $packagedOutput = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $packagedHelper -Operation Query -RuleName $packagedRule)
+    if ($LASTEXITCODE -ne 0) { throw 'The packaged Firewall helper read-only runtime query failed.' }
+    $packagedResult = (($packagedOutput -join "
+") | ConvertFrom-Json)
+    if ([string]$packagedResult.status -cne 'QueryCompleted' -or [bool]$packagedResult.present) { throw 'The packaged Firewall helper read-only runtime query returned an invalid result.' }
     $dryRehearsalId = [Guid]'10b00000-0000-4000-8000-000000000001'
     $installPlan = & (Join-Path $PSScriptRoot 'Install-QuietShieldService.ps1') -ApprovedRehearsalId $dryRehearsalId -WhatIf
     if (($installPlan -join "`n") -cnotmatch 'InstallationPlanValidated' -or ($installPlan -join "`n") -cnotmatch 'modifyingCommandInvoked') { throw 'The exact service installation dry run did not validate.' }
