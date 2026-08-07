@@ -40,7 +40,7 @@ if ($Operation -eq 'Query') {
     return
 }
 
-$validated = Test-QuietShieldFirewallTransaction -Path $TransactionPath
+$validated = Test-QuietShieldFirewallTransaction -Path $TransactionPath -AllowHistoricalProgramIdentityForCleanup:($Operation -eq 'Cleanup')
 $transaction = $validated.Transaction
 if ($Operation -ne 'Restore' -and $Operation -ne 'Cleanup' -and [string]$transaction.policy -cne $Operation) { throw 'The requested operation does not match the immutable transaction policy.' }
 if ($WhatIfPreference) {

@@ -127,7 +127,7 @@ function Get-QuietShieldFirewallTransactionPayloadHash {
 
 function Test-QuietShieldFirewallTransaction {
     [CmdletBinding()]
-    param([Parameter(Mandatory = $true)][string]$Path)
+    param([Parameter(Mandatory = $true)][string]$Path, [switch]$AllowHistoricalProgramIdentityForCleanup)
     $resolved = [IO.Path]::GetFullPath($Path)
     if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) { throw 'The persistent Firewall transaction is missing.' }
     $transaction = Get-Content -LiteralPath $resolved -Raw | ConvertFrom-Json
@@ -136,7 +136,19 @@ function Test-QuietShieldFirewallTransaction {
     if ([string]$transaction.ruleName -cne ('QuietShield.ProgramLock.' + [string]$transaction.stableRuleId)) { throw 'The deterministic exact rule name is invalid.' }
     if ([string]$transaction.stableRuleId -notmatch '\A[0-9a-f]{32}\z') { throw 'The deterministic rule ID is invalid.' }
     if ([string]$transaction.description -notmatch '\A[\x20-\x7E]{1,160}\z') { throw 'The exact rule description is invalid.' }
-    if (-not (Test-Path -LiteralPath ([string]$transaction.programPath) -PathType Leaf) -or (Get-QuietShieldFileSha256 -Path ([string]$transaction.programPath)) -cne ([string]$transaction.programSha256).ToUpperInvariant()) { throw 'The exact transaction program identity is invalid.' }
+    $transactionProgramPath = [string]$transaction.programPath
+    $transactionProgramSha256 = [string]$transaction.programSha256
+    if ([string]::IsNullOrWhiteSpace($transactionProgramPath) -or
+        -not [IO.Path]::IsPathRooted($transactionProgramPath) -or
+        -not (Test-QuietShieldSha256Text -Value $transactionProgramSha256)) {
+        throw 'The exact transaction program identity is invalid.'
+    }
+    if (-not $AllowHistoricalProgramIdentityForCleanup) {
+        if (-not (Test-Path -LiteralPath $transactionProgramPath -PathType Leaf) -or
+            (Get-QuietShieldFileSha256 -Path $transactionProgramPath) -cne $transactionProgramSha256.ToUpperInvariant()) {
+            throw 'The exact transaction program identity is invalid.'
+        }
+    }
     if ($null -ne $transaction.backupRule -and ([string]$transaction.backupRule.ownershipMarker -cne 'QuietShield' -or [string]$transaction.backupRule.name -cne [string]$transaction.ruleName)) { throw 'The backed-up rule identity is foreign or mismatched.' }
     if (@($transaction.safetyExemptions).Count -ne 8) { throw 'The transaction safety exemptions are incomplete.' }
     $payloadHash = Get-QuietShieldFirewallTransactionPayloadHash -Transaction $transaction

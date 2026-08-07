@@ -18,7 +18,7 @@ if (Test-Path -LiteralPath $transactionDirectory -PathType Container) { $transac
 if ($TransactionId -ne [Guid]::Empty) { $transactionFiles = @($transactionFiles | Where-Object { $_.BaseName -ceq $TransactionId.ToString('D') }) }
 if (-not $CleanupForUninstall -and $TransactionId -eq [Guid]::Empty -and -not $WhatIfPreference) { throw 'Emergency restore requires the exact approved transaction ID.' }
 $validatedTransactions = @()
-foreach ($file in $transactionFiles) { $validatedTransactions += Test-QuietShieldFirewallTransaction -Path $file.FullName }
+foreach ($file in $transactionFiles) { $validatedTransactions += Test-QuietShieldFirewallTransaction -Path $file.FullName -AllowHistoricalProgramIdentityForCleanup:$CleanupForUninstall }
 if ($TransactionId -ne [Guid]::Empty -and $validatedTransactions.Count -ne 1) { throw 'The exact approved transaction record was not found exactly once.' }
 $operation = 'Restore'
 if ($CleanupForUninstall) { $operation = 'Cleanup' }

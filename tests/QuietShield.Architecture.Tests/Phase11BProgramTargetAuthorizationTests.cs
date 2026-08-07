@@ -122,6 +122,31 @@ public sealed class Phase11BProgramTargetAuthorizationTests
     }
 
     [TestMethod]
+    public void HistoricalTransactionProgramIdentityIsRelaxedOnlyForCleanup()
+    {
+        var common = File.ReadAllText(Path.Combine(
+            RepositoryRoot, "scripts", "ServiceActivation.Script.Common.ps1"));
+        var restore = File.ReadAllText(Path.Combine(
+            RepositoryRoot, "scripts", "Restore-QuietShieldServiceState.ps1"));
+        var firewall = File.ReadAllText(Path.Combine(
+            RepositoryRoot, "scripts", "Invoke-ServiceFirewallPolicy.ps1"));
+
+        StringAssert.Contains(common, "AllowHistoricalProgramIdentityForCleanup");
+        StringAssert.Contains(common, "if (-not $AllowHistoricalProgramIdentityForCleanup)");
+        StringAssert.Contains(
+            restore,
+            "-AllowHistoricalProgramIdentityForCleanup:$CleanupForUninstall");
+        StringAssert.Contains(
+            firewall,
+            "-AllowHistoricalProgramIdentityForCleanup:($Operation -eq 'Cleanup')");
+
+        Assert.IsFalse(
+            firewall.Contains(
+                "-AllowHistoricalProgramIdentityForCleanup:$true",
+                StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public void CustomerFacingEnforcementControlsRemainAbsent()
     {
         var page = File.ReadAllText(Path.Combine(
