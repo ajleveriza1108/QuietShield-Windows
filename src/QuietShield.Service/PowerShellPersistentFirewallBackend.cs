@@ -59,7 +59,12 @@ public sealed class PowerShellPersistentFirewallBackend : IPersistentFirewallBac
         using var process = Process.Start(start) ?? throw new InvalidOperationException("The exact Firewall policy helper could not start.");
         var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        if (!process.WaitForExit(30_000)) throw new TimeoutException($"The exact Firewall policy helper did not exit within 30 seconds. Process ID: {process.Id}.");
+        if (!process.WaitForExit(30_000))
+        {
+            try { process.Kill(entireProcessTree: true); }
+            catch (InvalidOperationException) { }
+            throw new TimeoutException($"The exact Firewall policy helper did not exit within 30 seconds. Process ID: {process.Id}.");
+        }
         await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
         var output = await outputTask.ConfigureAwait(false);
         var error = await errorTask.ConfigureAwait(false);

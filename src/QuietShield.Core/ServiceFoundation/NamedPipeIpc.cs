@@ -127,6 +127,11 @@ public sealed class NamedPipeQuietShieldServer
             {
                 break;
             }
+            catch (OperationCanceledException)
+            {
+                // A single bounded request timed out. Keep the service IPC listener
+                // alive; the next loop creates a clean local endpoint.
+            }
             catch (Exception exception) when (exception is IOException or InvalidDataException or JsonException)
             {
                 // The next loop creates a clean local endpoint. Message content is deliberately not logged.

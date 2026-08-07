@@ -46,8 +46,11 @@ public sealed record DiagnosticServiceOptions(
         var controlRequest = Value(args, "--control-request");
         var controlOutput = Value(args, "--control-output");
         if ((controlRequest is null) != (controlOutput is null)) throw new ArgumentException("Control request and output paths must be supplied together.", nameof(args));
+        var requestTimeout = serviceMode || controlRequest is not null
+            ? TimeSpan.FromSeconds(150)
+            : TimeSpan.FromSeconds(5);
         return new(diagnostic, serviceMode, smoke, pipe, Path.GetFullPath(stateRoot), output is null ? null : Path.GetFullPath(output),
-            TimeSpan.FromSeconds(durationSeconds), TimeSpan.FromSeconds(5), activation,
+            TimeSpan.FromSeconds(durationSeconds), requestTimeout, activation,
             controlRequest is null ? null : Path.GetFullPath(controlRequest), controlOutput is null ? null : Path.GetFullPath(controlOutput));
     }
 

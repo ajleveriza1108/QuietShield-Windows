@@ -61,7 +61,7 @@ public sealed class DiagnosticServiceRequestHandler : IQuietShieldServiceRequest
             var result = await _programPolicyCoordinator.ChangeAsync(change, cancellationToken).ConfigureAwait(false);
             return Response(request, ServiceResponseStatus.Ok, "The exact approved Program Lock transaction committed.", result);
         }
-        catch (Exception exception) when (exception is InvalidDataException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is InvalidDataException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException or TimeoutException)
         {
             return Response(request, ServiceResponseStatus.InvalidRequest, exception.Message, null);
         }
