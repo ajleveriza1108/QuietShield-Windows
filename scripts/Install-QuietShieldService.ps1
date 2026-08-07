@@ -78,9 +78,9 @@ $ownership.payloadSha256 = Get-QuietShieldServiceOwnershipPayloadHash -Manifest 
 $ownershipPath = Join-Path $install 'service-ownership.json'
 $ownership | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ownershipPath -Encoding UTF8
 
-& icacls.exe $install '/inheritance:r' '/grant:r' '*S-1-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' ('*' + $authorizedSid + ':(OI)(CI)RX') | Out-Null
+& icacls.exe $install '/inheritance:r' '/grant:r' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' ('*' + $authorizedSid + ':(OI)(CI)RX') | Out-Null
 if ($LASTEXITCODE -ne 0) { throw ('Failed to secure exact QuietShield installation directory: ' + $install) }
-& icacls.exe $state '/inheritance:r' '/grant:r' '*S-1-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' ('*' + $authorizedSid + ':(OI)(CI)R') | Out-Null
+& icacls.exe $state '/inheritance:r' '/grant:r' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' ('*' + $authorizedSid + ':(OI)(CI)R') | Out-Null
 if ($LASTEXITCODE -ne 0) { throw ('Failed to secure exact QuietShield state directory: ' + $state) }
 
 $createdService = $false
