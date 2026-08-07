@@ -84,7 +84,7 @@ public sealed class Phase11BProgramTargetAuthorizationTests
     }
 
     [TestMethod]
-    public void Phase11BRehearsalUsesRenamedControlledTargetAndExactCleanup()
+    public void Phase11BRehearsalUsesRelocatedRuntimeCompleteTargetAndExactCleanup()
     {
         var rehearsal = File.ReadAllText(Path.Combine(
             RepositoryRoot,
@@ -93,7 +93,11 @@ public sealed class Phase11BProgramTargetAuthorizationTests
 
         foreach (var required in new[]
                  {
-                     "QuietShield.CustomerProgramTarget.exe",
+                     "QuietShield.ConnectionProbe.dll",
+                     "$sourceProbeDirectory",
+                     "Copy-Item -Path (Join-Path $sourceProbeDirectory '*')",
+                     "$sourceIdentity",
+                     "$targetIdentity -ceq $sourceIdentity",
                      "Get-QuietShieldApprovedProgramIdentity",
                      "AuthorizedProgramPath",
                      "--control-request",
@@ -109,6 +113,11 @@ public sealed class Phase11BProgramTargetAuthorizationTests
         Assert.IsFalse(
             rehearsal.Contains(
                 "stableApplicationIdentity = 'quietshield.connection-probe'",
+                StringComparison.Ordinal));
+
+        Assert.IsFalse(
+            rehearsal.Contains(
+                "QuietShield.CustomerProgramTarget.exe",
                 StringComparison.Ordinal));
     }
 

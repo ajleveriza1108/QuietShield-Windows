@@ -25,7 +25,9 @@ New-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null
 
 $targetDirectory = Join-Path $root 'artifacts\phase11b\controlled-target'
 $sourceProbe = Join-Path $root 'artifacts\bin\QuietShield.ConnectionProbe\x64\Release\net10.0\QuietShield.ConnectionProbe.exe'
-$targetPath = Join-Path $targetDirectory 'QuietShield.CustomerProgramTarget.exe'
+$sourceProbeDirectory = Split-Path -Parent $sourceProbe
+$targetPath = Join-Path $targetDirectory 'QuietShield.ConnectionProbe.exe'
+$targetDllPath = Join-Path $targetDirectory 'QuietShield.ConnectionProbe.dll'
 $rehearsalId = [Guid]::NewGuid()
 $preStatePath = Join-Path $evidenceDirectory 'protected-before.json'
 $postStatePath = Join-Path $evidenceDirectory 'protected-after.json'
@@ -63,10 +65,23 @@ try {
     }
 
     New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
-    Copy-Item -LiteralPath $sourceProbe -Destination $targetPath -Force
+
+    # QuietShield.ConnectionProbe.exe is a framework-dependent .NET apphost.
+    # Keep its original filename and copy its complete runtime set so the apphost
+    # can resolve QuietShield.ConnectionProbe.dll, deps.json, and runtimeconfig.json.
+    Copy-Item -Path (Join-Path $sourceProbeDirectory '*') -Destination $targetDirectory -Recurse -Force
     $targetPrepared = $true
 
+    if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+        throw 'The relocated controlled probe executable was not copied.'
+    }
+
+    if (-not (Test-Path -LiteralPath $targetDllPath -PathType Leaf)) {
+        throw 'The relocated controlled probe companion DLL is missing.'
+    }
+
     $targetHash = Get-QuietShieldFileSha256 -Path $targetPath
+    $sourceIdentity = Get-QuietShieldApprovedProgramIdentity -Path $sourceProbe
     $targetIdentity = Get-QuietShieldApprovedProgramIdentity -Path $targetPath
 
     if ($targetIdentity -notmatch '\Awindows-exe:[0-9a-f]{32}\z') {
@@ -75,6 +90,10 @@ try {
 
     if ($targetIdentity -ceq 'quietshield.connection-probe') {
         throw 'The controlled target identity still resolves to the legacy probe identity.'
+    }
+
+    if ($targetIdentity -ceq $sourceIdentity) {
+        throw 'The relocated controlled target did not receive a distinct path-derived identity.'
     }
 
     $resolvedAddresses = @(
@@ -93,7 +112,7 @@ try {
     }
 
     if ($null -eq $selectedAddress) {
-        throw 'The renamed controlled target had no reachable literal endpoint before service installation.'
+        throw 'The relocated controlled target had no reachable literal endpoint before service installation.'
     }
 
     & (Join-Path $PSScriptRoot 'Install-QuietShieldService.ps1') `
@@ -155,7 +174,7 @@ try {
 
     & $targetPath $selectedAddress.ToString() '443' '5000' | Out-Null
     if ($LASTEXITCODE -ne 10) {
-        throw ('The renamed controlled target was not blocked; exit code ' + [string]$LASTEXITCODE)
+        throw ('The relocated controlled target was not blocked; exit code ' + [string]$LASTEXITCODE)
     }
 
     $requestPath = Join-Path $evidenceDirectory 'allowed-request.json'
@@ -257,7 +276,7 @@ try {
 Status: **Passed**
 
 - Authorized target identity: Path-derived
-- Authorized target type: Renamed controlled non-system test executable
+- Authorized target type: Relocated controlled non-system test executable with complete .NET runtime set
 - Exact service install/start: Passed
 - Local authorized named-pipe IPC: Passed
 - Generalized Blocked transaction: Passed
@@ -269,7 +288,7 @@ Status: **Passed**
 - Protected persistent Windows state: Unchanged
 - Restart required: No
 
-The rehearsal proved that persistent Program Connection Lock authorization is no longer hard-coded to the literal `quietshield.connection-probe` stable identity. The authorized executable remained bound to one exact path, one exact SHA-256, one path-derived stable identity, and one approved rehearsal ID.
+The rehearsal proved that persistent Program Connection Lock authorization is no longer hard-coded to the literal `quietshield.connection-probe` stable identity. The original apphost filename was preserved only for .NET runtime resolution; authorization used the relocated path-derived identity. The authorized executable remained bound to one exact path, one exact SHA-256, one path-derived stable identity, and one approved rehearsal ID.
 
 No installed customer application was targeted. No DNS, WFP, adapter, unrelated Firewall rule, startup, certificate, or unrelated security setting was changed.
 "@
@@ -279,7 +298,7 @@ No installed customer application was targeted. No DNS, WFP, adapter, unrelated 
     [pscustomobject][ordered]@{
         status = 'Passed'
         targetIdentityMode = 'PathDerived'
-        targetType = 'RenamedControlledNonSystemExecutable'
+        targetType = 'RelocatedControlledNonSystemExecutable'
         exactRuleName = $ruleName
         generalizedBlocked = 'Passed'
         allowedOnAllRemoval = 'Passed'
