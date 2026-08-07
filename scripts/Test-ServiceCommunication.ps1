@@ -2,7 +2,7 @@
 param(
     [string]$RepositoryRoot = '',
     [string]$OutputDirectory = '',
-    [int]$HostDurationSeconds = 8
+    [int]$HostDurationSeconds = 30
 )
 
 Set-StrictMode -Version 2.0

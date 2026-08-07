@@ -100,19 +100,47 @@ public sealed class Phase10AServiceAndIpcTests
     [TestMethod]
     public async Task NamedPipeConnectionHonorsBoundedTimeoutAndCancellation()
     {
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
-        var client = new NamedPipeQuietShieldServiceClient("QuietShield.Missing." + Guid.NewGuid().ToString("N"), TimeSpan.FromMilliseconds(150));
+        var missingPipe = "QuietShield.Missing." + Guid.NewGuid().ToString("N");
+
+        var timeoutClient = new NamedPipeQuietShieldServiceClient(
+            missingPipe,
+            TimeSpan.FromMilliseconds(150));
+        var timeoutWatch = System.Diagnostics.Stopwatch.StartNew();
+
         try
         {
-            await client.SendAsync(ServiceMessageKind.Ping, null, cancellation.Token);
-            Assert.Fail("A missing local pipe unexpectedly connected.");
+            await timeoutClient.SendAsync(ServiceMessageKind.Ping, null, CancellationToken.None);
+            Assert.Fail("A missing local pipe unexpectedly connected before the bounded client timeout.");
         }
         catch (Exception exception) when (exception is OperationCanceledException or TimeoutException)
         {
-            Assert.IsTrue(cancellation.IsCancellationRequested || exception is TimeoutException);
+            // The client timeout is implemented with a linked cancellation token.
+            // Either bounded cancellation representation is valid here because
+            // there is no caller cancellation competing with the client timeout.
+        }
+
+        timeoutWatch.Stop();
+        Assert.IsTrue(
+            timeoutWatch.Elapsed < TimeSpan.FromSeconds(3),
+            $"The missing-pipe client did not honor its bounded timeout. Elapsed: {timeoutWatch.Elapsed}.");
+
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
+        var cancellationClient = new NamedPipeQuietShieldServiceClient(
+            missingPipe,
+            TimeSpan.FromSeconds(5));
+
+        try
+        {
+            await cancellationClient.SendAsync(ServiceMessageKind.Ping, null, cancellation.Token);
+            Assert.Fail("A missing local pipe unexpectedly connected before caller cancellation.");
+        }
+        catch (OperationCanceledException)
+        {
+            Assert.IsTrue(
+                cancellation.IsCancellationRequested,
+                "Caller cancellation must be observable when it wins before the longer client timeout.");
         }
     }
-
     [TestMethod]
     public async Task ServerCancellationEndsCleanlyWithoutAClient()
     {

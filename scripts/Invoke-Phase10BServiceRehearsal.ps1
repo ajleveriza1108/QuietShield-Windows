@@ -116,8 +116,8 @@ catch {
     $primaryFailure = $_
     if ($serviceInstalled) {
         try {
-            if (-not $allowedCommitted -and -not [string]::IsNullOrWhiteSpace($ruleName)) { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Restore-QuietShieldServiceState.ps1') -ApprovedEmergencyRestore -CleanupForUninstall -StateRoot 'D:\QuietShield\State' -Confirm:$false }
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Uninstall-QuietShieldService.ps1') -ApprovedServiceUninstall -Confirm:$false
+            if (-not $allowedCommitted -and -not [string]::IsNullOrWhiteSpace($ruleName)) { & (Join-Path $PSScriptRoot 'Restore-QuietShieldServiceState.ps1') -ApprovedEmergencyRestore -CleanupForUninstall -StateRoot 'D:\QuietShield\State' -Confirm:$false }
+            & (Join-Path $PSScriptRoot 'Uninstall-QuietShieldService.ps1') -ApprovedServiceUninstall -Confirm:$false
         }
         catch { Write-Error ('Exact emergency cleanup also failed: ' + $_.Exception.Message) }
     }
