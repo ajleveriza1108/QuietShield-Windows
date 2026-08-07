@@ -13,6 +13,19 @@ public static class QuietShieldServiceIdentity
     public const string RehearsalPurpose = "Phase10BControlledServiceRehearsal";
 }
 
+public static class ApprovedProgramTargetIdentity
+{
+    public const string Prefix = "windows-exe:";
+
+    public static string FromExecutablePath(string executablePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
+        var canonicalPath = Path.GetFullPath(executablePath).Trim().ToUpperInvariant();
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalPath)));
+        return Prefix + hash[..32].ToLowerInvariant();
+    }
+}
+
 public sealed record ServiceActivationConfiguration(
     int SchemaVersion,
     string ProductMarker,

@@ -5,7 +5,8 @@ param(
     [string]$PackageRoot = '',
     [string]$InstallRoot = 'D:\QuietShield\Service',
     [string]$StateRoot = 'D:\QuietShield\State',
-    [string]$ProbePath = ''
+    [string]$ProbePath = '',
+    [string]$AuthorizedProgramPath = ''
 )
 
 Set-StrictMode -Version 2.0
@@ -16,13 +17,23 @@ $ErrorActionPreference = 'Stop'
 Assert-QuietShieldPowerShell51
 $root = Get-QuietShieldRepositoryRoot
 if ([string]::IsNullOrWhiteSpace($PackageRoot)) { $PackageRoot = Join-Path $root 'artifacts\service-package\Release' }
-if ([string]::IsNullOrWhiteSpace($ProbePath)) { $ProbePath = Join-Path $root 'artifacts\bin\QuietShield.ConnectionProbe\x64\Release\net10.0\QuietShield.ConnectionProbe.exe' }
+if (-not [string]::IsNullOrWhiteSpace($AuthorizedProgramPath) -and -not [string]::IsNullOrWhiteSpace($ProbePath)) { throw 'Only one of -AuthorizedProgramPath or -ProbePath may be supplied.' }
+if ([string]::IsNullOrWhiteSpace($AuthorizedProgramPath)) {
+    if ([string]::IsNullOrWhiteSpace($ProbePath)) { $AuthorizedProgramPath = Join-Path $root 'artifacts\bin\QuietShield.ConnectionProbe\x64\Release\net10.0\QuietShield.ConnectionProbe.exe' }
+    else { $AuthorizedProgramPath = $ProbePath }
+}
 $package = Test-QuietShieldServicePackage -PackageRoot $PackageRoot
 $install = [IO.Path]::GetFullPath($InstallRoot).TrimEnd('\')
 $state = [IO.Path]::GetFullPath($StateRoot).TrimEnd('\')
-$probe = [IO.Path]::GetFullPath($ProbePath)
+$probe = [IO.Path]::GetFullPath($AuthorizedProgramPath)
 if (-not $install.StartsWith('D:\QuietShield\', [StringComparison]::OrdinalIgnoreCase) -or -not $state.StartsWith('D:\QuietShield\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Phase 10B service and state roots must remain under D:\QuietShield.' }
-if (-not (Test-Path -LiteralPath $probe -PathType Leaf)) { throw 'The validated dedicated Release probe is missing.' }
+if (-not (Test-Path -LiteralPath $probe -PathType Leaf)) { throw 'The explicitly approved program executable is missing.' }
+$approvedItem = Get-Item -LiteralPath $probe -Force
+if (($approvedItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'A reparse-point program target is not accepted for controlled activation.' }
+$windowsRoot = [IO.Path]::GetFullPath($env:WINDIR).TrimEnd('\') + '\'
+if ($probe.StartsWith($windowsRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Windows-directory executables are not accepted as controlled Phase 11B targets.' }
+if ([IO.Path]::GetFileName($probe) -cin @('QuietShield.Service.exe','QuietShield.App.exe')) { throw 'QuietShield protection executables cannot be selected as controlled Program Lock targets.' }
+$authorizedStableApplicationIdentity = Get-QuietShieldApprovedProgramIdentity -Path $probe
 $collision = Assert-QuietShieldNoForeignServiceCollision -InstallRoot $install
 if ($null -ne $collision -and $null -ne $collision.Service) {
     [pscustomobject]@{ status = 'AlreadyInstalled'; serviceName = 'QuietShieldService'; exactOwnedService = $true; changed = $false } | ConvertTo-Json -Compress
@@ -33,7 +44,7 @@ if ($ApprovedRehearsalId -eq [Guid]::Empty) { throw 'An explicit approved rehear
 $plan = [pscustomobject][ordered]@{
     status = 'InstallationPlanValidated'; serviceName = 'QuietShieldService'; displayName = 'QuietShield Protection Service';
     packagePayloadSha256 = $package.PayloadSha256; sourceExecutable = $package.ExecutablePath; installRoot = $install; stateRoot = $state;
-    probePath = $probe; startup = 'AutomaticDelayedStart'; account = 'LocalSystem'; recovery = 'RestartAfter60SecondsThreeTimes';
+    probePath = $probe; authorizedProgramPath = $probe; authorizedStableApplicationIdentity = $authorizedStableApplicationIdentity; startup = 'AutomaticDelayedStart'; account = 'LocalSystem'; recovery = 'RestartAfter60SecondsThreeTimes';
     existingExactServiceCount = @(Get-QuietShieldExactService).Count; foreignServiceRefused = $true; modifyingCommandInvoked = $false
 }
 if ($WhatIfPreference) { $plan | ConvertTo-Json -Depth 6; return }

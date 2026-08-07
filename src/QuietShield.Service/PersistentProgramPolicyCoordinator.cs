@@ -124,12 +124,20 @@ public sealed class PersistentProgramPolicyCoordinator : IServiceProgramPolicyCo
         if (request.ApprovedRehearsalId != _activation.ApprovedRehearsalId) throw new UnauthorizedAccessException("The request is outside the approved rehearsal transaction.");
         if (request.Policy is not (ProgramConnectionPolicy.Blocked or ProgramConnectionPolicy.AllowedOnAll)) throw new NotSupportedException("Network-specific policies remain simulation-only.");
         if (string.IsNullOrWhiteSpace(request.ProfileId) || string.IsNullOrWhiteSpace(request.StableApplicationIdentity)) throw new InvalidDataException("An exact profile and stable application identity are required.");
-        if (!request.StableApplicationIdentity.Equals("quietshield.connection-probe", StringComparison.Ordinal)) throw new UnauthorizedAccessException("Only QuietShield.ConnectionProbe is approved for the controlled rehearsal.");
-        if (!Path.GetFullPath(request.ExecutablePath).Equals(Path.GetFullPath(_activation.ProbePath), StringComparison.OrdinalIgnoreCase)) throw new UnauthorizedAccessException("Only the approved dedicated connection probe may be changed.");
-        using var stream = File.OpenRead(request.ExecutablePath);
+        var approvedProgramPath = Path.GetFullPath(_activation.ProbePath);
+        var requestedProgramPath = Path.GetFullPath(request.ExecutablePath);
+        if (!requestedProgramPath.Equals(approvedProgramPath, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Only the currently approved program target may be changed.");
+        var expectedStableIdentity = ApprovedProgramTargetIdentity.FromExecutablePath(approvedProgramPath);
+        var legacyPhase10BProbeIdentity =
+            Path.GetFileName(approvedProgramPath).Equals("QuietShield.ConnectionProbe.exe", StringComparison.OrdinalIgnoreCase) &&
+            request.StableApplicationIdentity.Equals("quietshield.connection-probe", StringComparison.Ordinal);
+        if (!request.StableApplicationIdentity.Equals(expectedStableIdentity, StringComparison.Ordinal) && !legacyPhase10BProbeIdentity)
+            throw new UnauthorizedAccessException("The stable application identity does not match the currently approved program target.");
+        using var stream = File.OpenRead(requestedProgramPath);
         var actualHash = Convert.ToHexString(SHA256.HashData(stream));
         if (!actualHash.Equals(request.ExecutableSha256, StringComparison.OrdinalIgnoreCase) || !actualHash.Equals(_activation.ProbeSha256, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("The approved probe executable hash does not match.");
+            throw new InvalidDataException("The approved program executable hash does not match.");
     }
 
     private static string ComputeStableRuleId(string profileId, string stableApplicationIdentity)

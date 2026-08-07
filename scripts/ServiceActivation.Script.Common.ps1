@@ -25,6 +25,13 @@ function Get-QuietShieldFileSha256 {
     finally { $algorithm.Dispose(); $stream.Dispose() }
 }
 
+function Get-QuietShieldApprovedProgramIdentity {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $canonicalPath = [IO.Path]::GetFullPath($Path).Trim().ToUpperInvariant()
+    $hash = Get-QuietShieldUtf8Sha256 -Value $canonicalPath
+    return 'windows-exe:' + $hash.Substring(0, 32).ToLowerInvariant()
+}
+
 function Get-QuietShieldServicePackagePayloadHash {
     param([Parameter(Mandatory = $true)]$Manifest)
     $lines = @()
