@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "productMarker": "QuietShield",
+  "purpose": "Phase12InstallerStaticSecurityPolicy",
+  "installerForbiddenFragments": [
+    "Set-DnsClientServerAddress",
+    "New-NetFirewallRule",
+    "Remove-NetFirewallRule",
+    "-Verb RunAs",
+    "ShellExec("
+  ],
+  "lifecycleForbiddenFragments": [
+    "Set-DnsClientServerAddress",
+    "New-NetFirewallRule",
+    "Remove-NetFirewallRule",
+    "Get-NetFirewallRule",
+    "-Verb RunAs"
+  ]
+}

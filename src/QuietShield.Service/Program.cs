@@ -34,10 +34,16 @@ namespace QuietShield.Service
             builder.Services.AddSingleton<PersistentFirewallTransactionStore>();
             if (options.ServiceMode)
             {
-                var activation = options.ActivationConfiguration ?? throw new InvalidDataException("The controlled service activation configuration is missing.");
-                builder.Services.AddSingleton(activation);
-                builder.Services.AddSingleton<IPersistentFirewallBackend, PowerShellPersistentFirewallBackend>();
-                builder.Services.AddSingleton<IServiceProgramPolicyCoordinator, PersistentProgramPolicyCoordinator>();
+                var authorization = options.AuthorizationContext ?? throw new InvalidDataException("The service authorization configuration is missing.");
+                builder.Services.AddSingleton(authorization);
+                builder.Services.AddSingleton<IPersistentFirewallBackend>(services => new PowerShellPersistentFirewallBackend(
+                    services.GetRequiredService<ProgramPolicyAuthorizationContext>(),
+                    services.GetRequiredService<PersistentFirewallTransactionStore>()));
+                builder.Services.AddSingleton<IServiceProgramPolicyCoordinator>(services => new PersistentProgramPolicyCoordinator(
+                    services.GetRequiredService<ProgramPolicyAuthorizationContext>(),
+                    services.GetRequiredService<PersistentServiceRuntime>(),
+                    services.GetRequiredService<PersistentFirewallTransactionStore>(),
+                    services.GetRequiredService<IPersistentFirewallBackend>()));
             }
             else
             {

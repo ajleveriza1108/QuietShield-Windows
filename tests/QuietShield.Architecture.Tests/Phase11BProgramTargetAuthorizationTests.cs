@@ -40,11 +40,12 @@ public sealed class Phase11BProgramTargetAuthorizationTests
         foreach (var required in new[]
                  {
                      "ApprovedProgramTargetIdentity.FromExecutablePath",
-                     "_activation.ProbePath",
-                     "_activation.ProbeSha256",
+                     "_authorization.FixedProgramPath",
+                     "_authorization.FixedProgramSha256",
                      "requestedProgramPath",
                      "expectedStableIdentity",
-                     "Only the currently approved program target may be changed"
+                     "Only the currently approved program target may be changed",
+                     "ValidateProductionTarget"
                  })
         {
             StringAssert.Contains(coordinator, required);

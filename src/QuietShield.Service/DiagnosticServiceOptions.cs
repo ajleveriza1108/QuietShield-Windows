@@ -11,8 +11,12 @@ public sealed record DiagnosticServiceOptions(
     TimeSpan RequestTimeout,
     Core.ServiceFoundation.ServiceActivationConfiguration? ActivationConfiguration,
     string? ControlRequestPath,
-    string? ControlOutputPath)
+    string? ControlOutputPath,
+    Core.ServiceFoundation.ProductionServiceConfiguration? ProductionConfiguration = null)
 {
+    public Core.ServiceFoundation.ProgramPolicyAuthorizationContext? AuthorizationContext =>
+        ProductionConfiguration?.ToAuthorizationContext() ?? ActivationConfiguration?.ToAuthorizationContext();
+
     public static DiagnosticServiceOptions Parse(string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -33,6 +37,10 @@ public sealed record DiagnosticServiceOptions(
             throw new ArgumentException("The local pipe name is invalid.", nameof(args));
         Core.ServiceFoundation.ServiceActivationConfiguration? activation = null;
         var activationPath = Value(args, "--activation-config");
+        Core.ServiceFoundation.ProductionServiceConfiguration? production = null;
+        var productionPath = Value(args, "--production-config");
+        if (activationPath is not null && productionPath is not null)
+            throw new ArgumentException("Controlled rehearsal and production service configurations are mutually exclusive.", nameof(args));
         if (activationPath is not null)
         {
             using var stream = File.OpenRead(Path.GetFullPath(activationPath));
@@ -42,7 +50,16 @@ public sealed record DiagnosticServiceOptions(
             var errors = activation.Validate(DateTimeOffset.UtcNow);
             if (errors.Count != 0) throw new InvalidDataException(string.Join(" ", errors));
         }
-        if (serviceMode && activation is null) throw new InvalidDataException("Service mode requires a validated controlled-activation configuration.");
+        if (productionPath is not null)
+        {
+            using var stream = File.OpenRead(Path.GetFullPath(productionPath));
+            production = System.Text.Json.JsonSerializer.Deserialize<Core.ServiceFoundation.ProductionServiceConfiguration>(
+                stream, Core.ServiceFoundation.ServiceMessageSerializer.Options)
+                ?? throw new InvalidDataException("The production service configuration is empty.");
+            var errors = production.Validate();
+            if (errors.Count != 0) throw new InvalidDataException(string.Join(" ", errors));
+        }
+        if (serviceMode && activation is null && production is null) throw new InvalidDataException("Service mode requires a validated controlled-activation or production configuration.");
         var controlRequest = Value(args, "--control-request");
         var controlOutput = Value(args, "--control-output");
         if ((controlRequest is null) != (controlOutput is null)) throw new ArgumentException("Control request and output paths must be supplied together.", nameof(args));
@@ -51,7 +68,7 @@ public sealed record DiagnosticServiceOptions(
             : TimeSpan.FromSeconds(5);
         return new(diagnostic, serviceMode, smoke, pipe, Path.GetFullPath(stateRoot), output is null ? null : Path.GetFullPath(output),
             TimeSpan.FromSeconds(durationSeconds), requestTimeout, activation,
-            controlRequest is null ? null : Path.GetFullPath(controlRequest), controlOutput is null ? null : Path.GetFullPath(controlOutput));
+            controlRequest is null ? null : Path.GetFullPath(controlRequest), controlOutput is null ? null : Path.GetFullPath(controlOutput), production);
     }
 
     private static string? Value(string[] args, string name)

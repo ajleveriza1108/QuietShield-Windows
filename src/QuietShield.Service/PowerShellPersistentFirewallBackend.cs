@@ -8,12 +8,15 @@ public sealed class PowerShellPersistentFirewallBackend : IPersistentFirewallBac
 {
     private sealed record ScriptResult(string Status, bool Present, PersistentFirewallRuleSnapshot? Rule);
 
-    private readonly ServiceActivationConfiguration _activation;
+    private readonly ProgramPolicyAuthorizationContext _authorization;
     private readonly PersistentFirewallTransactionStore _transactions;
 
     public PowerShellPersistentFirewallBackend(ServiceActivationConfiguration activation, PersistentFirewallTransactionStore transactions)
+        : this(activation.ToAuthorizationContext(), transactions) { }
+
+    public PowerShellPersistentFirewallBackend(ProgramPolicyAuthorizationContext authorization, PersistentFirewallTransactionStore transactions)
     {
-        _activation = activation;
+        _authorization = authorization;
         _transactions = transactions;
     }
 
@@ -54,7 +57,7 @@ public sealed class PowerShellPersistentFirewallBackend : IPersistentFirewallBac
         start.ArgumentList.Add("-ExecutionPolicy");
         start.ArgumentList.Add("Bypass");
         start.ArgumentList.Add("-File");
-        start.ArgumentList.Add(_activation.EnforcementScriptPath);
+        start.ArgumentList.Add(_authorization.EnforcementScriptPath);
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("The exact Firewall policy helper could not start.");
         var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);

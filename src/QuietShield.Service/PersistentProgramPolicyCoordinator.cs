@@ -18,7 +18,7 @@ public sealed class InactiveServiceProgramPolicyCoordinator : IServiceProgramPol
 public sealed class PersistentProgramPolicyCoordinator : IServiceProgramPolicyCoordinator, IDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private readonly ServiceActivationConfiguration _activation;
+    private readonly ProgramPolicyAuthorizationContext _authorization;
     private readonly PersistentServiceRuntime _runtime;
     private readonly PersistentFirewallTransactionStore _transactions;
     private readonly IPersistentFirewallBackend _backend;
@@ -27,9 +27,15 @@ public sealed class PersistentProgramPolicyCoordinator : IServiceProgramPolicyCo
         ServiceActivationConfiguration activation,
         PersistentServiceRuntime runtime,
         PersistentFirewallTransactionStore transactions,
+        IPersistentFirewallBackend backend) : this(activation.ToAuthorizationContext(), runtime, transactions, backend) { }
+
+    public PersistentProgramPolicyCoordinator(
+        ProgramPolicyAuthorizationContext authorization,
+        PersistentServiceRuntime runtime,
+        PersistentFirewallTransactionStore transactions,
         IPersistentFirewallBackend backend)
     {
-        _activation = activation;
+        _authorization = authorization;
         _runtime = runtime;
         _transactions = transactions;
         _backend = backend;
@@ -55,7 +61,7 @@ public sealed class PersistentProgramPolicyCoordinator : IServiceProgramPolicyCo
             var transaction = new PersistentFirewallTransaction(
                 PersistentFirewallTransaction.CurrentSchemaVersion,
                 QuietShieldServiceIdentity.ProductMarker,
-                QuietShieldServiceIdentity.RehearsalPurpose,
+                _authorization.Purpose,
                 transactionId,
                 request.ApprovedRehearsalId,
                 DateTimeOffset.UtcNow,
@@ -119,25 +125,53 @@ public sealed class PersistentProgramPolicyCoordinator : IServiceProgramPolicyCo
 
     private void ValidateRequest(ProgramRuleChangeRequest request)
     {
-        var activationErrors = _activation.Validate(DateTimeOffset.UtcNow);
-        if (activationErrors.Count != 0) throw new InvalidDataException(string.Join(" ", activationErrors));
-        if (request.ApprovedRehearsalId != _activation.ApprovedRehearsalId) throw new UnauthorizedAccessException("The request is outside the approved rehearsal transaction.");
+        if (request.ApprovedRehearsalId != _authorization.AuthorizationId) throw new UnauthorizedAccessException("The request is outside the authorized service installation.");
         if (request.Policy is not (ProgramConnectionPolicy.Blocked or ProgramConnectionPolicy.AllowedOnAll)) throw new NotSupportedException("Network-specific policies remain simulation-only.");
         if (string.IsNullOrWhiteSpace(request.ProfileId) || string.IsNullOrWhiteSpace(request.StableApplicationIdentity)) throw new InvalidDataException("An exact profile and stable application identity are required.");
-        var approvedProgramPath = Path.GetFullPath(_activation.ProbePath);
         var requestedProgramPath = Path.GetFullPath(request.ExecutablePath);
-        if (!requestedProgramPath.Equals(approvedProgramPath, StringComparison.OrdinalIgnoreCase))
+        if (!File.Exists(requestedProgramPath)) throw new FileNotFoundException("The exact approved program target is unavailable.", requestedProgramPath);
+        if (_authorization.FixedProgramPath is { } fixedProgramPath && !requestedProgramPath.Equals(Path.GetFullPath(fixedProgramPath), StringComparison.OrdinalIgnoreCase))
             throw new UnauthorizedAccessException("Only the currently approved program target may be changed.");
-        var expectedStableIdentity = ApprovedProgramTargetIdentity.FromExecutablePath(approvedProgramPath);
+        if (_authorization.IsProduction) ValidateProductionTarget(requestedProgramPath);
+        var expectedStableIdentity = ApprovedProgramTargetIdentity.FromExecutablePath(requestedProgramPath);
         var legacyPhase10BProbeIdentity =
-            Path.GetFileName(approvedProgramPath).Equals("QuietShield.ConnectionProbe.exe", StringComparison.OrdinalIgnoreCase) &&
+            !_authorization.IsProduction && Path.GetFileName(requestedProgramPath).Equals("QuietShield.ConnectionProbe.exe", StringComparison.OrdinalIgnoreCase) &&
             request.StableApplicationIdentity.Equals("quietshield.connection-probe", StringComparison.Ordinal);
         if (!request.StableApplicationIdentity.Equals(expectedStableIdentity, StringComparison.Ordinal) && !legacyPhase10BProbeIdentity)
             throw new UnauthorizedAccessException("The stable application identity does not match the currently approved program target.");
         using var stream = File.OpenRead(requestedProgramPath);
         var actualHash = Convert.ToHexString(SHA256.HashData(stream));
-        if (!actualHash.Equals(request.ExecutableSha256, StringComparison.OrdinalIgnoreCase) || !actualHash.Equals(_activation.ProbeSha256, StringComparison.OrdinalIgnoreCase))
+        if (!actualHash.Equals(request.ExecutableSha256, StringComparison.OrdinalIgnoreCase) ||
+            _authorization.FixedProgramSha256 is { } fixedHash && !actualHash.Equals(fixedHash, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("The approved program executable hash does not match.");
+    }
+
+    private void ValidateProductionTarget(string requestedProgramPath)
+    {
+        if (!Path.GetExtension(requestedProgramPath).Equals(".exe", StringComparison.OrdinalIgnoreCase) ||
+            Path.GetFileName(requestedProgramPath).StartsWith("QuietShield.", StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("The requested executable is not an eligible customer application target.");
+        var windowsRoot = Path.GetFullPath(Environment.GetFolderPath(Environment.SpecialFolder.Windows)).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (requestedProgramPath.StartsWith(windowsRoot, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Windows system executables cannot be selected for persistent Program Connection Lock.");
+        var approvedRoot = _authorization.ApprovedProgramRoots
+            .Select(static value => Path.GetFullPath(value).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            .FirstOrDefault(root => requestedProgramPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+        if (approvedRoot is null) throw new UnauthorizedAccessException("The requested executable is outside the approved installed-application roots.");
+        if (ContainsReparsePoint(requestedProgramPath, approvedRoot)) throw new UnauthorizedAccessException("Reparse-point application targets are not supported.");
+    }
+
+    private static bool ContainsReparsePoint(string path, string root)
+    {
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) return true;
+        var directory = Directory.GetParent(path);
+        while (directory is not null && directory.FullName.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+        {
+            if ((directory.Attributes & FileAttributes.ReparsePoint) != 0) return true;
+            if (directory.FullName.Equals(root, StringComparison.OrdinalIgnoreCase)) break;
+            directory = directory.Parent;
+        }
+        return false;
     }
 
     private static string ComputeStableRuleId(string profileId, string stableApplicationIdentity)

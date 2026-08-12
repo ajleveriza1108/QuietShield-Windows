@@ -59,7 +59,7 @@ public sealed class PersistentFirewallTransactionStore
         var errors = new List<string>();
         if (transaction.SchemaVersion != PersistentFirewallTransaction.CurrentSchemaVersion) errors.Add("The transaction schema is unsupported.");
         if (!transaction.ProductMarker.Equals(QuietShieldServiceIdentity.ProductMarker, StringComparison.Ordinal) ||
-            !transaction.Purpose.Equals(QuietShieldServiceIdentity.RehearsalPurpose, StringComparison.Ordinal)) errors.Add("The transaction owner or purpose is foreign.");
+            transaction.Purpose is not (QuietShieldServiceIdentity.RehearsalPurpose or QuietShieldServiceIdentity.ProductionPurpose)) errors.Add("The transaction owner or purpose is foreign.");
         if (transaction.TransactionId == Guid.Empty || transaction.ApprovedRehearsalId == Guid.Empty) errors.Add("The transaction identity is invalid.");
         if (transaction.Policy is not (Core.Protection.ProgramConnectionPolicy.Blocked or Core.Protection.ProgramConnectionPolicy.AllowedOnAll)) errors.Add("Only Blocked and AllowedOnAll are supported.");
         if (string.IsNullOrWhiteSpace(transaction.ProfileId) || string.IsNullOrWhiteSpace(transaction.StableApplicationIdentity)) errors.Add("The profile or application identity is missing.");

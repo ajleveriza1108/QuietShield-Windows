@@ -11,7 +11,11 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ServiceActivation.Script.Common.ps1')
 Assert-QuietShieldPowerShell51
 $state = [IO.Path]::GetFullPath($StateRoot).TrimEnd('\')
-if (-not $state.StartsWith('D:\QuietShield\', [StringComparison]::OrdinalIgnoreCase)) { throw 'The service state root must remain under D:\QuietShield.' }
+$rehearsalRoot = [IO.Path]::GetFullPath('D:\QuietShield\State').TrimEnd('\')
+$productionRoot = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)) 'QuietShield\Service')).TrimEnd('\')
+if (-not $state.Equals($rehearsalRoot, [StringComparison]::OrdinalIgnoreCase) -and -not $state.Equals($productionRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'The service state root must be the exact rehearsal or production QuietShield state directory.'
+}
 $transactionDirectory = Join-Path $state 'transactions'
 $transactionFiles = @()
 if (Test-Path -LiteralPath $transactionDirectory -PathType Container) { $transactionFiles = @(Get-ChildItem -LiteralPath $transactionDirectory -Filter '*.json' -File | Sort-Object -Property Name) }

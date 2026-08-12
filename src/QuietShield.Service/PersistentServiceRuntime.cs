@@ -115,7 +115,7 @@ public sealed partial class PersistentServiceRuntime : IDisposable
                 true,
                 _persistentEnforcementAvailable,
                 _state.ProgramPolicies,
-                _options.ServiceMode ? _options.ActivationConfiguration?.ApprovedRehearsalId : null);
+                _options.ServiceMode ? _options.AuthorizationContext?.AuthorizationId : null);
         }
     }
 

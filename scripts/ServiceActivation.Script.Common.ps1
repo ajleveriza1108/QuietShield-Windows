@@ -4,6 +4,7 @@ $script:QuietShieldServiceName = 'QuietShieldService'
 $script:QuietShieldServiceDisplayName = 'QuietShield Protection Service'
 $script:QuietShieldServiceProductMarker = 'QuietShield'
 $script:QuietShieldServicePurpose = 'Phase10BControlledServiceRehearsal'
+$script:QuietShieldProductionServicePurpose = 'QuietShieldProductionService'
 
 function Test-QuietShieldSha256Text {
     param([string]$Value)
@@ -105,6 +106,44 @@ function Test-QuietShieldServiceActivationConfiguration {
     return [pscustomobject]@{ Path = $resolved; Configuration = $configuration; PayloadSha256 = $payloadHash }
 }
 
+function Get-QuietShieldProductionServiceConfigurationPayloadHash {
+    param([Parameter(Mandatory = $true)]$Configuration)
+    $roots = @($Configuration.approvedProgramRoots | ForEach-Object { [IO.Path]::GetFullPath([string]$_).TrimEnd('\').TrimEnd('/') } | Sort-Object)
+    $canonical = @(
+        [string][int]$Configuration.schemaVersion, [string]$Configuration.productMarker, [string]$Configuration.purpose,
+        [string]$Configuration.serviceName, ([Guid][string]$Configuration.installationId).ToString('D'), [string]$Configuration.authorizedUserSid,
+        ($roots -join '~'), [IO.Path]::GetFullPath([string]$Configuration.enforcementScriptPath),
+        ([string]$Configuration.enforcementScriptSha256).ToUpperInvariant(),
+        ([DateTimeOffset]$Configuration.createdAtUtc).ToUniversalTime().ToString('O')
+    ) -join '|'
+    return Get-QuietShieldUtf8Sha256 -Value $canonical
+}
+
+function Test-QuietShieldProductionServiceConfiguration {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $resolved = [IO.Path]::GetFullPath($Path)
+    if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) { throw 'The production service configuration is missing.' }
+    $configuration = Get-Content -LiteralPath $resolved -Raw | ConvertFrom-Json
+    if ([int]$configuration.schemaVersion -ne 1 -or [string]$configuration.productMarker -cne $script:QuietShieldServiceProductMarker -or
+        [string]$configuration.purpose -cne $script:QuietShieldProductionServicePurpose -or [string]$configuration.serviceName -cne $script:QuietShieldServiceName) { throw 'The production service configuration identity is invalid.' }
+    if ([Guid][string]$configuration.installationId -eq [Guid]::Empty) { throw 'The production installation ID is invalid.' }
+    if ([string]$configuration.authorizedUserSid -notmatch '\AS-1-') { throw 'The authorized user SID is invalid.' }
+    $roots = @($configuration.approvedProgramRoots)
+    if ($roots.Count -lt 1 -or $roots.Count -gt 8) { throw 'One to eight approved application roots are required.' }
+    $normalizedRoots = @($roots | ForEach-Object {
+        if ([string]::IsNullOrWhiteSpace([string]$_) -or -not [IO.Path]::IsPathRooted([string]$_)) { throw 'An approved application root is invalid.' }
+        [IO.Path]::GetFullPath([string]$_).TrimEnd('\').TrimEnd('/')
+    })
+    if (@($normalizedRoots | Sort-Object -Unique).Count -ne $normalizedRoots.Count) { throw 'Approved application roots must be unique.' }
+    $scriptPath = [IO.Path]::GetFullPath([string]$configuration.enforcementScriptPath)
+    if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf) -or -not (Test-QuietShieldSha256Text -Value ([string]$configuration.enforcementScriptSha256)) -or
+        (Get-QuietShieldFileSha256 -Path $scriptPath) -cne ([string]$configuration.enforcementScriptSha256).ToUpperInvariant()) { throw 'The production enforcement script failed validation.' }
+    $payloadHash = Get-QuietShieldProductionServiceConfigurationPayloadHash -Configuration $configuration
+    if ($payloadHash -cne ([string]$configuration.payloadSha256).ToUpperInvariant()) { throw 'The production service configuration payload hash is invalid.' }
+    return [pscustomobject]@{ Path = $resolved; Configuration = $configuration; PayloadSha256 = $payloadHash }
+}
+
 function Get-QuietShieldFirewallTransactionPayloadHash {
     param([Parameter(Mandatory = $true)]$Transaction)
     $backup = 'absent'
@@ -131,7 +170,8 @@ function Test-QuietShieldFirewallTransaction {
     $resolved = [IO.Path]::GetFullPath($Path)
     if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) { throw 'The persistent Firewall transaction is missing.' }
     $transaction = Get-Content -LiteralPath $resolved -Raw | ConvertFrom-Json
-    if ([int]$transaction.schemaVersion -ne 1 -or [string]$transaction.productMarker -cne $script:QuietShieldServiceProductMarker -or [string]$transaction.purpose -cne $script:QuietShieldServicePurpose) { throw 'The persistent Firewall transaction identity is foreign.' }
+    if ([int]$transaction.schemaVersion -ne 1 -or [string]$transaction.productMarker -cne $script:QuietShieldServiceProductMarker -or
+        [string]$transaction.purpose -cnotin @($script:QuietShieldServicePurpose, $script:QuietShieldProductionServicePurpose)) { throw 'The persistent Firewall transaction identity is foreign.' }
     if ([string]$transaction.policy -cnotin @('Blocked','AllowedOnAll')) { throw 'Only Blocked and AllowedOnAll transactions are supported.' }
     if ([string]$transaction.ruleName -cne ('QuietShield.ProgramLock.' + [string]$transaction.stableRuleId)) { throw 'The deterministic exact rule name is invalid.' }
     if ([string]$transaction.stableRuleId -notmatch '\A[0-9a-f]{32}\z') { throw 'The deterministic rule ID is invalid.' }

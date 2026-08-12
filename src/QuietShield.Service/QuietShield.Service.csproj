@@ -17,4 +17,7 @@
     <ProjectReference Include="..\QuietShield.Core\QuietShield.Core.csproj" />
     <ProjectReference Include="..\QuietShield.Windows\QuietShield.Windows.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+  </ItemGroup>
 </Project>

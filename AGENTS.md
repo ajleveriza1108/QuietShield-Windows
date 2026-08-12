@@ -28,7 +28,8 @@ Do not merge `main` early.
 - Phase 11C: **PASSED**
 - Phase 11D: **PASSED**
 - Phase 11: **COMPLETE**
-- Next phase: **Phase 12 — self-contained beta installer; begin only under a new explicit request**
+- Phase 12 static installer milestone: **PASSED**
+- Next gate: **Phase 12 controlled install/upgrade/uninstall rehearsal; explicit approval required**
 
 Permanent evidence:
 
@@ -39,6 +40,7 @@ Permanent evidence:
 - `PHASE-11C-INSTALLED-APP-REPORT.md`
 - `PHASE-11D-DESKTOP-ACTIVATION-REPORT.md`
 - `PHASE-11-COMPLETION-REPORT.md`
+- `PHASE-12-BETA-INSTALLER-REPORT.md`
 
 Read only the reports needed for the current task.
 
@@ -504,3 +506,5 @@ After Phase 11:
 - Phase 14 — Trial/release hardening
 
 Do not start Phase 12 before Phase 11 is fully complete.
+
+Phase 12 static packaging is complete. Do not run the beta installer or perform a production service install, upgrade, repair, or uninstall until a separately approved controlled rehearsal.

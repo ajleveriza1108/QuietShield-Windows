@@ -9,8 +9,8 @@ public static class ServiceNamedPipeFactory
     public static Func<NamedPipeServerStream>? Create(DiagnosticServiceOptions options)
     {
         if (!options.ServiceMode) return null;
-        var activation = options.ActivationConfiguration ?? throw new InvalidOperationException("Service pipe security requires validated activation configuration.");
-        return () => CreateProductionPipe(options.PipeName, activation.AuthorizedUserSid);
+        var authorization = options.AuthorizationContext ?? throw new InvalidOperationException("Service pipe security requires validated authorization configuration.");
+        return () => CreateProductionPipe(options.PipeName, authorization.AuthorizedUserSid);
     }
 
     private static NamedPipeServerStream CreateProductionPipe(string pipeName, string authorizedUserSid)
