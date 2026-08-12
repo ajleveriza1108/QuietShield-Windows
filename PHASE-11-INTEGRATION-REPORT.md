@@ -1,6 +1,6 @@
 # Phase 11 Desktop / Service Integration Report
 
-Status: **Phase 11A + Phase 11B + Phase 11C Passed**
+Status: **Phase 11 COMPLETE — Phase 11A + Phase 11B + Phase 11C + Phase 11D Passed**
 
 ## Phase 11A - desktop/service integration
 
@@ -69,7 +69,7 @@ Detailed evidence is preserved in `PHASE-11C-INSTALLED-APP-REPORT.md`.
 
 ## Phase 11 safety boundaries still in force
 
-- Customer-facing persistent Apply / Block controls remain gated.
+- Raw developer service and Firewall controls remain absent; the customer workflow uses only validated service requests.
 - Only Blocked and AllowedOnAll have persistent service-path validation.
 - Network-specific policies remain simulation-only.
 - DNS activation remains blocked pending the separate Phase 5 loopback issue.
@@ -107,4 +107,6 @@ Validated Phase 11D evidence:
 
 Permanent Phase 11D evidence is recorded in `PHASE-11D-DESKTOP-ACTIVATION-REPORT.md`.
 
-The feature branch may proceed to the separately requested final Phase 11 integration gate. Do not merge `feature/phase-11-integration-stabilization` to `main` early.
+The final Phase 11 integration gate passed. `feature/phase-11-integration-stabilization` is approved for the explicitly requested history-preserving merge to `main`.
+
+Permanent final evidence is recorded in `PHASE-11-COMPLETION-REPORT.md`.
