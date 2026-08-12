@@ -230,13 +230,19 @@ socket.on('error', () => finish(10));
             )
         }
         elseif ($ProbeAdapter -eq 'GitCurl') {
+            # -q must be first so default curlrc configuration is ignored.
+            # --noproxy * forces a direct connection regardless of proxy environment.
+            # --write-out proves the real connection endpoint.
             $arguments = @(
+                '-q',
+                '--noproxy', '*',
                 '--silent',
                 '--show-error',
                 '--connect-timeout', '5',
                 '--max-time', '8',
                 '--resolve', ('example.com:' + [string]$Port + ':' + $Address),
                 '--output', 'NUL',
+                '--write-out', 'QS11C|%{proxy_used}|%{remote_ip}|%{remote_port}',
                 'https://example.com/'
             )
         }
@@ -247,6 +253,31 @@ socket.on('error', () => finish(10));
             -WorkingDirectory $WorkingDirectory `
             -TimeoutMilliseconds 12000
 
+        $directPathVerified = $true
+        $proxyUsed = $false
+        $remoteIp = ''
+        $remotePort = 0
+
+        if ($ProbeAdapter -eq 'GitCurl') {
+            $directPathVerified = $false
+
+            if (-not [bool]$result.timedOut -and [int]$result.exitCode -eq 0) {
+                $marker = [regex]::Match(
+                    ([string]$result.stdout).Trim(),
+                    '\AQS11C\|([01])\|([^|]+)\|([0-9]+)\z')
+
+                if ($marker.Success) {
+                    $proxyUsed = ($marker.Groups[1].Value -ceq '1')
+                    $remoteIp = $marker.Groups[2].Value
+                    $remotePort = [int]$marker.Groups[3].Value
+                    $directPathVerified =
+                        (-not $proxyUsed) -and
+                        $remoteIp -ceq $Address -and
+                        $remotePort -eq $Port
+                }
+            }
+        }
+
         return [pscustomobject][ordered]@{
             executablePath = $resolved
             probeAdapter = $ProbeAdapter
@@ -254,7 +285,14 @@ socket.on('error', () => finish(10));
             port = $Port
             exitCode = [int]$result.exitCode
             timedOut = [bool]$result.timedOut
-            succeeded = (-not [bool]$result.timedOut -and [int]$result.exitCode -eq 0)
+            succeeded = (
+                -not [bool]$result.timedOut -and
+                [int]$result.exitCode -eq 0 -and
+                $directPathVerified)
+            directPathVerified = $directPathVerified
+            proxyUsed = $proxyUsed
+            remoteIp = $remoteIp
+            remotePort = $remotePort
             stderr = [string]$result.stderr
         }
     }

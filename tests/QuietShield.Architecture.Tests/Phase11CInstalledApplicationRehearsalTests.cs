@@ -48,6 +48,11 @@ public sealed class Phase11CInstalledApplicationRehearsalTests
                      "Invoke-Phase11CNetworkProbe",
                      "example.com",
                      "--resolve",
+                     "'-q'",
+                     "--noproxy",
+                     "proxy_used",
+                     "remote_ip",
+                     "directPathVerified",
                      "socket.create_connection",
                      "net.createConnection"
                  })
