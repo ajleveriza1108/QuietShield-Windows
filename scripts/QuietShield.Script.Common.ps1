@@ -89,13 +89,50 @@ function Invoke-QuietShieldCommand {
     }
 }
 
+function Test-QuietShieldVisualStudioCompatibility {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$RequiredFeatureLine,
+        [Parameter(Mandatory = $true)][string]$MinimumServicingVersion,
+        [Parameter(Mandatory = $true)][string]$ResolvedProductVersion,
+        [Parameter(Mandatory = $true)][string]$InstallationVersion,
+        [Parameter(Mandatory = $true)][bool]$IsComplete,
+        [Parameter(Mandatory = $true)][bool]$IsLaunchable,
+        [Parameter(Mandatory = $true)][bool]$IsPrerelease
+    )
+
+    if (-not $IsComplete -or -not $IsLaunchable -or $IsPrerelease) { return $false }
+    if ($RequiredFeatureLine -notmatch '\A(?<major>\d+)\.(?<minor>\d+)\z') { return $false }
+    $RequiredMajor = [int]$Matches.major
+    $RequiredMinor = [int]$Matches.minor
+    if ($MinimumServicingVersion -notmatch '\A(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)\z') { return $false }
+    $MinimumMajor = [int]$Matches.major
+    $MinimumMinor = [int]$Matches.minor
+    $MinimumPatch = [int]$Matches.patch
+    if ($ResolvedProductVersion -notmatch '\A(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)\z') { return $false }
+    $ResolvedMajor = [int]$Matches.major
+    $ResolvedMinor = [int]$Matches.minor
+    $ResolvedPatch = [int]$Matches.patch
+    if ($InstallationVersion -notmatch '\A(?<major>\d+)\.(?<minor>\d+)\.\d+\.\d+\z') { return $false }
+    $InstallationMajor = [int]$Matches.major
+    $InstallationMinor = [int]$Matches.minor
+
+    return $MinimumMajor -eq $RequiredMajor -and
+        $MinimumMinor -eq $RequiredMinor -and
+        $ResolvedMajor -eq $RequiredMajor -and
+        $ResolvedMinor -eq $RequiredMinor -and
+        $ResolvedPatch -ge $MinimumPatch -and
+        $InstallationMajor -eq $RequiredMajor -and
+        $InstallationMinor -eq $RequiredMinor
+}
+
 function Get-QuietShieldVisualStudio2026Instance {
     $vswhere = 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe'
     if (-not (Test-Path -LiteralPath $vswhere)) {
         throw 'vswhere.exe was not found.'
     }
 
-    $json = & $vswhere -all -products Microsoft.VisualStudio.Product.Community -format json -utf8
+    $json = & $vswhere -all -products Microsoft.VisualStudio.Product.Community -requires Microsoft.VisualStudio.Workload.ManagedDesktop Microsoft.VisualStudio.Component.NuGet Microsoft.Component.MSBuild -format json -utf8
     if ($LASTEXITCODE -ne 0) {
         throw 'vswhere failed.'
     }
@@ -107,29 +144,97 @@ function Get-QuietShieldVisualStudio2026Instance {
 
     $matches = @($instances | Where-Object {
         $_.installationPath -eq 'D:\Microsoft Visual Studio\2026\Community' -and
-        $_.installationVersion -eq '18.8.12023.21' -and
-        $_.isComplete -eq $true -and
-        $_.isLaunchable -eq $true
+        (Test-QuietShieldVisualStudioCompatibility `
+            -RequiredFeatureLine '18.8' `
+            -MinimumServicingVersion '18.8.2' `
+            -ResolvedProductVersion ([string]$_.catalog.productDisplayVersion) `
+            -InstallationVersion ([string]$_.installationVersion) `
+            -IsComplete ([bool]$_.isComplete) `
+            -IsLaunchable ([bool]$_.isLaunchable) `
+            -IsPrerelease ([bool]$_.isPrerelease))
     })
 
     if ($matches.Count -ne 1) {
-        throw 'The validated Visual Studio 2026 Community 18.8.2 instance was not found exactly once.'
+        throw 'A complete, launchable Visual Studio 2026 Community 18.8.x instance at the validated path with ManagedDesktop, NuGet, and MSBuild was not found exactly once.'
     }
 
     return $matches[0]
 }
 
+function Test-QuietShieldDotNetSdkCompatibility {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$RequestedVersion,
+        [Parameter(Mandatory = $true)][string]$ResolvedVersion,
+        [Parameter(Mandatory = $true)][string]$RollForward,
+        [Parameter(Mandatory = $true)][bool]$AllowPrerelease
+    )
+
+    if ($RollForward -cne 'latestPatch') { return $false }
+    if ($RequestedVersion -notmatch '\A(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)\z') { return $false }
+    $RequestedMajor = [int]$Matches.major
+    $RequestedMinor = [int]$Matches.minor
+    $RequestedPatch = [int]$Matches.patch
+    if ($ResolvedVersion -notmatch '\A(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)\z') {
+        return $false
+    }
+    $ResolvedMajor = [int]$Matches.major
+    $ResolvedMinor = [int]$Matches.minor
+    $ResolvedPatch = [int]$Matches.patch
+    if (-not $AllowPrerelease -and $ResolvedVersion.Contains('-')) { return $false }
+
+    $RequestedFeatureBand = [Math]::Floor($RequestedPatch / 100)
+    $ResolvedFeatureBand = [Math]::Floor($ResolvedPatch / 100)
+    return $ResolvedMajor -eq $RequestedMajor -and
+        $ResolvedMinor -eq $RequestedMinor -and
+        $ResolvedFeatureBand -eq $RequestedFeatureBand -and
+        $ResolvedPatch -ge $RequestedPatch
+}
+
+function Get-QuietShieldResolvedDotNetSdkVersion {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$RepositoryRoot)
+
+    $StartInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $StartInfo.FileName = 'dotnet'
+    $StartInfo.Arguments = '--version'
+    $StartInfo.WorkingDirectory = [IO.Path]::GetFullPath($RepositoryRoot)
+    $StartInfo.UseShellExecute = $false
+    $StartInfo.CreateNoWindow = $true
+    $StartInfo.RedirectStandardOutput = $true
+    $StartInfo.RedirectStandardError = $true
+    $SdkProcess = New-Object System.Diagnostics.Process
+    $SdkProcess.StartInfo = $StartInfo
+    if (-not $SdkProcess.Start()) { throw 'dotnet --version could not start.' }
+    $StandardOutputTask = $SdkProcess.StandardOutput.ReadToEndAsync()
+    $StandardErrorTask = $SdkProcess.StandardError.ReadToEndAsync()
+    if (-not $SdkProcess.WaitForExit(15000)) { throw 'dotnet --version exceeded its bounded timeout.' }
+    $SdkProcess.WaitForExit()
+    $SdkProcess.Refresh()
+    $StandardOutput = $StandardOutputTask.GetAwaiter().GetResult()
+    $StandardError = $StandardErrorTask.GetAwaiter().GetResult()
+    $SdkExitCode = $SdkProcess.ExitCode
+    $SdkProcess.Dispose()
+    if ($SdkExitCode -ne 0) { throw ('dotnet --version failed: ' + $StandardError.Trim()) }
+    return ([string]$StandardOutput).Trim()
+}
+
 function Assert-QuietShieldToolchain {
-    $sdkVersionOutput = @(& dotnet --version)
-    $sdkExitCode = $LASTEXITCODE
-    $sdkVersion = ([string]($sdkVersionOutput | Select-Object -First 1)).Trim()
-    if ($sdkExitCode -ne 0 -or $sdkVersion -ne '10.0.302') {
-        throw ("Expected .NET SDK 10.0.302; actual: {0}" -f $sdkVersion)
+    $RepositoryRoot = Get-QuietShieldRepositoryRoot
+    $GlobalJsonPath = Join-Path $RepositoryRoot 'global.json'
+    if (-not (Test-Path -LiteralPath $GlobalJsonPath -PathType Leaf)) { throw 'The repository global.json is missing.' }
+    $GlobalJson = Get-Content -LiteralPath $GlobalJsonPath -Raw | ConvertFrom-Json
+    $RequestedSdkVersion = [string]$GlobalJson.sdk.version
+    $RollForward = [string]$GlobalJson.sdk.rollForward
+    $AllowPrerelease = [bool]$GlobalJson.sdk.allowPrerelease
+    $ResolvedSdkVersion = Get-QuietShieldResolvedDotNetSdkVersion -RepositoryRoot $RepositoryRoot
+    if (-not (Test-QuietShieldDotNetSdkCompatibility -RequestedVersion $RequestedSdkVersion -ResolvedVersion $ResolvedSdkVersion -RollForward $RollForward -AllowPrerelease $AllowPrerelease)) {
+        throw ("Resolved .NET SDK {0} is incompatible with global.json request {1} ({2}, allowPrerelease={3})." -f $ResolvedSdkVersion, $RequestedSdkVersion, $RollForward, $AllowPrerelease)
     }
 
     $instance = Get-QuietShieldVisualStudio2026Instance
-    Write-Output ("Visual Studio: {0} at {1}" -f $instance.installationVersion, $instance.installationPath)
-    Write-Output (".NET SDK: {0}" -f $sdkVersion)
+    Write-Output ("Visual Studio: {0} ({1}) at {2}" -f $instance.catalog.productDisplayVersion, $instance.installationVersion, $instance.installationPath)
+    Write-Output (".NET SDK: {0} (global.json requested {1}; {2})" -f $ResolvedSdkVersion, $RequestedSdkVersion, $RollForward)
 }
 
 function Get-QuietShieldMSBuildPath {

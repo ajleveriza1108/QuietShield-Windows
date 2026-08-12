@@ -60,6 +60,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly IDnsRehearsalReadinessDiscovery _dnsRehearsalReadinessDiscovery;
     private readonly ILogger<MainViewModel> _logger;
     private readonly IQuietShieldServiceClient _serviceClient;
+    private readonly DesktopProgramActivationWorkflow _desktopProgramActivation;
     private readonly ObservableCollection<ApplicationListItem> _allApplications = new();
     private CancellationTokenSource? _refreshCancellation;
     private ReadOnlyDiscoveryBundle? _bundle;
@@ -101,6 +102,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         IDnsRehearsalReadinessDiscovery dnsRehearsalReadinessDiscovery,
         IProfileSelectionStore profileSelectionStore,
         IQuietShieldServiceClient serviceClient,
+        DesktopProgramActivationWorkflow desktopProgramActivation,
         ILogger<MainViewModel> logger)
     {
         _discovery = discovery;
@@ -115,6 +117,9 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _dnsRuntimeDiagnostic = dnsRuntimeDiagnostic;
         _dnsRehearsalReadinessDiscovery = dnsRehearsalReadinessDiscovery;
         _serviceClient = serviceClient;
+        _desktopProgramActivation = desktopProgramActivation;
+        InitializePhase11ServiceIntegration();
+        InitializePhase11DProgramActivation();
         _logger = logger;
         InitializeProgramConnectionLock(profileSelectionStore);
         InitializeProgramLockTransactions();
@@ -122,7 +127,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             new("Dashboard", "Foundation status and current read-only discovery.", "\uE80F", "READ-ONLY FOUNDATION", true),
             new("Protection", "Protection overview; enforcement remains disabled.", "\uEA18", "NOT ACTIVE"),
-            new("Program Connection Lock", "Local per-program policy simulation only.", "\uE839", "SIMULATION ONLY"),
+            new("Program Connection Lock", "Persistent Blocked/Allowed on All when the validated service is available; network-specific choices remain simulated.", "\uE839", "SERVICE-AWARE"),
             new("Protection Profiles", "Preview local protection profiles without applying them.", "\uE77B", "SIMULATION ONLY"),
             new("Schedules", "Preview schedule behavior without creating tasks or startup entries.", "\uE787", "SIMULATION ONLY"),
             new("Metered and Cellular Data Watch", "Current Windows metered state; no traffic accounting.", "\uE9D9", "READ-ONLY"),
@@ -189,16 +194,16 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsLicensing => SelectedPage.Title == "Licensing";
     public bool IsSettings => SelectedPage.Title == "Settings";
     public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsProtectionProfiles || IsSchedules || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings);
-    public string VersionText { get; } = "Version 0.10.1 - Controlled Service Activation Foundation";
+    public string VersionText { get; } = "Version 0.11.0 - Desktop Protection Workflow";
     public string FoundationMode { get; } = "Foundation Mode";
     public string ProtectionState { get; } = "Protection Not Activated";
     public string ActiveProfile { get; } = "Simulation only";
     public string SimulationBanner { get; } = PolicySimulationResult.SimulationOnlyLabel;
 
-    public ApplicationListItem? SelectedApplication { get => _selectedApplication; set { if (SetField(ref _selectedApplication, value)) UpdateSimulation(); } }
+    public ApplicationListItem? SelectedApplication { get => _selectedApplication; set { if (SetField(ref _selectedApplication, value)) { UpdateSimulation(); UpdatePhase11DSelection(); } } }
     public string SearchText { get => _searchText; set { if (SetField(ref _searchText, value)) ApplyFilter(); } }
     public SimulatedConnectionType SelectedConnectionType { get => _selectedConnectionType; set { if (SetField(ref _selectedConnectionType, value)) UpdateSimulation(); } }
-    public ProgramConnectionPolicy SelectedPolicy { get => _selectedPolicy; set { if (SetField(ref _selectedPolicy, value)) UpdateSimulation(); } }
+    public ProgramConnectionPolicy SelectedPolicy { get => _selectedPolicy; set { if (SetField(ref _selectedPolicy, value)) { UpdateSimulation(); UpdatePhase11DSelection(); } } }
     public ProtectionMode SelectedProfileMode { get => _selectedProfileMode; set { if (SetField(ref _selectedProfileMode, value)) UpdateSimulation(); } }
     public string NetworkSummary { get => _networkSummary; private set => SetField(ref _networkSummary, value); }
     public string NetworkTypeSummary { get => _networkTypeSummary; private set => SetField(ref _networkTypeSummary, value); }
@@ -236,12 +241,17 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         TraySummary = tray.Message;
         await InitializeDnsFoundationAsync(cancellationToken).ConfigureAwait(true);
         await InitializeDnsRehearsalReadinessAsync(cancellationToken).ConfigureAwait(true);
-        await InitializePersistentServiceFoundationAsync(cancellationToken).ConfigureAwait(true);
+        await LoadPhase11DDesktopPolicyAsync(cancellationToken).ConfigureAwait(true);
         await RefreshAsync(false).ConfigureAwait(true);
+        await InitializePersistentServiceFoundationAsync(cancellationToken).ConfigureAwait(true);
         LogInitializedMessage(_logger, null);
     }
 
-    public Task RefreshAfterResumeAsync() => RefreshAsync(false);
+    public async Task RefreshAfterResumeAsync()
+    {
+        await RefreshAsync(false).ConfigureAwait(true);
+        await RefreshPersistentServiceStatusAsync(CancellationToken.None).ConfigureAwait(true);
+    }
 
     public async Task ExportValidationDiagnosticAsync(string destinationPath, CancellationToken cancellationToken)
     {
@@ -270,6 +280,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             var progress = new Progress<DiscoveryProgress>(item => LastActionStatus = item.Message);
             _bundle = await _discovery.RefreshAsync(forceApplications, progress, _refreshCancellation.Token).ConfigureAwait(true);
             UpdateFromBundle(_bundle);
+            ReconcilePhase11DWorkflow(_lastServiceStatus is null);
             LastActionStatus = _bundle.WarningCount == 0 ? "Read-only discovery completed." : $"Discovery completed with {_bundle.WarningCount} warning(s).";
         }
         catch (OperationCanceledException) { LastActionStatus = "Discovery cancelled; no Windows setting was changed."; }

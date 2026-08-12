@@ -80,12 +80,16 @@ public partial class App : Application
         }
         builder.Services.AddSingleton<IProfileSelectionStore>(_ => new JsonProfileSelectionStore(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietShield", "Profiles", "selected-profile.json")));
+        builder.Services.AddSingleton<IDesktopProgramPolicyStore>(_ => new JsonDesktopProgramPolicyStore(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietShield", "ProgramLock", "desktop-policy.json")));
+        builder.Services.AddSingleton<WindowsInstalledProgramTargetValidator>();
         builder.Services.AddSingleton<IQuietShieldServiceClient>(_ =>
         {
             var pipeName = GetArgumentValue(e.Args, "--service-pipe-name") ?? QuietShieldServiceProtocol.ProductionPipeName;
             return new NamedPipeQuietShieldServiceClient(pipeName, TimeSpan.FromSeconds(3),
                 !pipeName.Equals(QuietShieldServiceProtocol.ProductionPipeName, StringComparison.Ordinal));
         });
+        builder.Services.AddSingleton<DesktopProgramActivationWorkflow>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
 
@@ -137,6 +141,28 @@ public partial class App : Application
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
             await File.WriteAllTextAsync(validationOutput, JsonSerializer.Serialize(result, GuiValidationSerializerOptions), CancellationToken.None).ConfigureAwait(true);
             if (!string.Equals(result.Status, "Passed", StringComparison.Ordinal)) Environment.ExitCode = 2;
+            window.Close();
+            return;
+        }
+
+        if (e.Args.Contains("--phase11-smoke", StringComparer.OrdinalIgnoreCase))
+        {
+            var validationOutput = GetArgumentValue(e.Args, "--gui-validation-output");
+            var planExportOutput = GetArgumentValue(e.Args, "--plan-export-output");
+            if (string.IsNullOrWhiteSpace(validationOutput) || string.IsNullOrWhiteSpace(planExportOutput))
+                throw new InvalidOperationException("Phase 11 GUI validation requires --gui-validation-output and --plan-export-output.");
+
+            var result = await Phase11GuiValidator.ValidateAsync(window, viewModel, planExportOutput).ConfigureAwait(true);
+            var directory = Path.GetDirectoryName(validationOutput);
+            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+            await File.WriteAllTextAsync(
+                validationOutput,
+                JsonSerializer.Serialize(result, GuiValidationSerializerOptions),
+                CancellationToken.None).ConfigureAwait(true);
+
+            if (!string.Equals(result.Status, "Passed", StringComparison.Ordinal))
+                Environment.ExitCode = 2;
+
             window.Close();
             return;
         }

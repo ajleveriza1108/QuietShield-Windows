@@ -104,7 +104,7 @@ public sealed partial class PersistentServiceRuntime : IDisposable
             return new(
                 _options.ServiceMode ? "Installed" : "Not installed",
                 _options.ServiceMode ? "Service IPC" : _options.DiagnosticMode ? "Diagnostic mode" : "Console-safe mode",
-                _persistentEnforcementAvailable ? "Available for approved rehearsal" : "Not active",
+                _persistentEnforcementAvailable ? "Available for authorized program target" : "Not active",
                 _state.ActiveProfileId,
                 _usedLastKnownGood ? "Recovered from validated last-known-good policy" : _state.LastKnownGoodPolicy.Validated ? "Validated" : "Not validated",
                 _state.TransactionCheckpoint.IsInterrupted ? "Interrupted transaction requires explicit recovery" : _state.TransactionCheckpoint.State?.ToString() ?? "No transaction",
@@ -113,7 +113,9 @@ public sealed partial class PersistentServiceRuntime : IDisposable
                 _options.ServiceMode,
                 _options.ServiceMode && health.State is not ("Stopped" or "Stopping" or "InvalidState"),
                 true,
-                _persistentEnforcementAvailable);
+                _persistentEnforcementAvailable,
+                _state.ProgramPolicies,
+                _options.ServiceMode ? _options.ActivationConfiguration?.ApprovedRehearsalId : null);
         }
     }
 

@@ -6,12 +6,37 @@
     <StackPanel>
         <Border Style="{StaticResource InformationBannerStyle}">
             <StackPanel>
-                <TextBlock FontWeight="SemiBold" Text="Enforcement is not active. No Windows Firewall or WFP rule has been changed." />
-                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Phase 8 previews deterministic transactions, verified backups, and rollback behavior. Every operation remains non-executable." />
+                <TextBlock FontWeight="SemiBold" Text="Persistent customer workflow: Blocked and Allowed on All" />
+                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="The desktop validates the selected installed application and uses only the secure local service transaction path. It never installs, starts, or elevates the service." />
+                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Wi-Fi, Ethernet, cellular, metered, and unmetered choices remain deterministic simulation only. DNS activation remains blocked." />
             </StackPanel>
         </Border>
         <Border Style="{StaticResource WarningBannerStyle}">
-            <TextBlock FontWeight="SemiBold" Text="Temporary dedicated test only. No installed application will be blocked." />
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="No policy is sent automatically at startup or after recovery. Service and last-known-good state remain authoritative until you explicitly save an eligible policy." />
+                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Enforcement is not active. No Windows Firewall or WFP rule has been changed." />
+                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Temporary dedicated test only. No installed application will be blocked." />
+            </StackPanel>
+        </Border>
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Desktop protection workflow" />
+                <controls:AdaptiveGridPanel ItemMinWidth="230" MaximumColumns="3" Spacing="10">
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Selected application" /><TextBlock Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding PersistentWorkflowApplication}" ToolTip="{Binding PersistentWorkflowApplication}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Application identity" /><TextBlock Style="{StaticResource TrimmedValueTextStyle}" Text="{Binding PersistentWorkflowIdentity}" ToolTip="{Binding PersistentWorkflowIdentity}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Requested policy" /><TextBlock Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding PersistentWorkflowRequestedPolicy}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Workflow state" /><TextBlock Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding PersistentWorkflowState}" /></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Service installed / running / IPC" /><TextBlock Style="{StaticResource BodyTextStyle}"><Run Text="{Binding ServiceInstalled, Mode=OneWay}" /><Run Text=" / " /><Run Text="{Binding ServiceRunning, Mode=OneWay}" /><Run Text=" / " /><Run Text="{Binding ServiceIpcConnected, Mode=OneWay}" /></TextBlock></StackPanel>
+                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Persistent enforcement available" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding PersistentEnforcementAvailable}" /></StackPanel>
+                </controls:AdaptiveGridPanel>
+                <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding PersistentWorkflowMessage}" ToolTip="{Binding PersistentWorkflowMessage}" />
+                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding PersistentWorkflowFallback}" ToolTip="{Binding PersistentWorkflowFallback}" />
+                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Foreground="{StaticResource WarningBrush}"><Run Text="Status: " /><Run Text="{Binding PersistentWorkflowIssue, Mode=OneWay}" /></TextBlock>
+                <WrapPanel Margin="0,12,0,0" KeyboardNavigation.TabNavigation="Local">
+                    <Button Margin="0,0,8,8" Command="{Binding SavePersistentProgramPolicyCommand}" Content="_Save protection policy" AutomationProperties.Name="Save protection policy" ToolTip="Validate and request Blocked or Allowed on All through the running QuietShield service." />
+                    <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding RetryPersistentServiceConnectionCommand}" Content="_Retry service connection" AutomationProperties.Name="Retry service connection" ToolTip="Refresh read-only service state and secure local IPC status." />
+                </WrapPanel>
+            </StackPanel>
         </Border>
         <Border Style="{StaticResource CardStyle}">
             <StackPanel>
