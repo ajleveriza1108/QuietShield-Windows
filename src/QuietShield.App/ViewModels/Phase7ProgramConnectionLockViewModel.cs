@@ -51,6 +51,7 @@ public sealed partial class MainViewModel
                 ProfilePersistenceStatus = $"Selected profile is active for this session; persistence was unavailable: {exception.Message}";
             }
             UpdateProgramConnectionLockSimulation();
+            UpdatePhase11DSelection();
         }
     }
 

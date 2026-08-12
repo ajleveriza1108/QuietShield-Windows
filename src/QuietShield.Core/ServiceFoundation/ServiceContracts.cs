@@ -62,7 +62,9 @@ public sealed record ServiceStatusSnapshot(
     bool ServiceInstalled = false,
     bool ServiceRunning = false,
     bool IpcConnected = false,
-    bool PersistentEnforcementAvailable = false);
+    bool PersistentEnforcementAvailable = false,
+    IReadOnlyList<PersistentProgramPolicy>? ProgramPolicies = null,
+    Guid? ProgramChangeAuthorizationId = null);
 
 public sealed record ServiceHealthSnapshot(
     string State,

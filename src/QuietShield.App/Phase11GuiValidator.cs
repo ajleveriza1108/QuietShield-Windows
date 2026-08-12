@@ -13,6 +13,7 @@ public sealed record Phase11GuiValidationResult(
     bool RefreshServiceStatusVisible,
     bool ServiceStatusRefreshSucceeded,
     bool ProgramLockIntegrationStatusVisible,
+    bool CustomerWorkflowVisible,
     bool CustomerEnforcementControlsAbsent,
     bool Responsive,
     IReadOnlyList<string> Errors);
@@ -64,11 +65,21 @@ public static class Phase11GuiValidator
             FindVisualChildren<TextBlock>(window).Select(static item => item.Text));
 
         var integrationStatusVisible =
-            programLockText.Contains("Phase 11", StringComparison.Ordinal) &&
-            programLockText.Contains("validated service", StringComparison.OrdinalIgnoreCase);
+            programLockText.Contains("Persistent customer workflow", StringComparison.OrdinalIgnoreCase) &&
+            programLockText.Contains("Allowed on All", StringComparison.OrdinalIgnoreCase);
 
         if (!integrationStatusVisible)
-            errors.Add("Program Connection Lock does not show the Phase 11 validated-service integration status.");
+            errors.Add("Program Connection Lock does not show the Phase 11D customer workflow status.");
+
+        var programLockButtons = FindVisualChildren<Button>(window).ToArray();
+        var customerWorkflowVisible = programLockButtons.Any(static button =>
+            (button.Content?.ToString() ?? string.Empty).Replace("_", string.Empty, StringComparison.Ordinal)
+                .Equals("Save protection policy", StringComparison.OrdinalIgnoreCase)) &&
+            programLockButtons.Any(static button =>
+                (button.Content?.ToString() ?? string.Empty).Replace("_", string.Empty, StringComparison.Ordinal)
+                    .Equals("Retry service connection", StringComparison.OrdinalIgnoreCase));
+        if (!customerWorkflowVisible)
+            errors.Add("The customer save/retry workflow is not visible.");
 
         var prohibited = FindVisualChildren<Button>(window).Any(static button =>
         {
@@ -81,7 +92,7 @@ public static class Phase11GuiValidator
         });
 
         if (prohibited)
-            errors.Add("A customer-facing persistent enforcement action is visible before Phase 11 activation approval.");
+            errors.Add("A raw developer service or enforcement control is visible.");
 
         var responsive = window.ResponsivePage.ScrollViewer.ScrollableWidth <= 1d;
         if (!responsive)
@@ -98,6 +109,7 @@ public static class Phase11GuiValidator
             refreshVisible,
             refreshSucceeded,
             integrationStatusVisible,
+            customerWorkflowVisible,
             !prohibited,
             responsive,
             errors);

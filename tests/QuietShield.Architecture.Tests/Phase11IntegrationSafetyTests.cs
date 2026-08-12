@@ -43,7 +43,7 @@ public sealed class Phase11IntegrationSafetyTests
     }
 
     [TestMethod]
-    public void Phase11GuiExposesRefreshButNoCustomerEnforcementAction()
+    public void Phase11DGuiExposesCustomerWorkflowButNoDeveloperLifecycleOrRawEnforcementAction()
     {
         var dashboard = File.ReadAllText(Path.Combine(
             RepositoryRoot,
@@ -67,8 +67,11 @@ public sealed class Phase11IntegrationSafetyTests
 
         StringAssert.Contains(dashboard, "Refresh Service Status");
         StringAssert.Contains(dashboard, "Phase 10B validated");
-        StringAssert.Contains(programLock, "Phase 11 connects");
+        StringAssert.Contains(programLock, "Persistent customer workflow");
+        StringAssert.Contains(programLock, "Save protection policy");
+        StringAssert.Contains(programLock, "Retry service connection");
         StringAssert.Contains(validator, "CustomerEnforcementControlsAbsent");
+        StringAssert.Contains(validator, "CustomerWorkflowVisible");
 
         foreach (var prohibited in new[]
                  {
@@ -99,6 +102,79 @@ public sealed class Phase11IntegrationSafetyTests
         StringAssert.Contains(app, "--phase11-smoke");
         Assert.IsFalse(app.Contains("Set-DnsClientServerAddress", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(app.Contains("-Verb RunAs", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void Phase11DWorkflowUsesOnlySecureServiceIpcAndPreservesExactAuthorization()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Core", "ServiceFoundation", "DesktopProgramActivation.cs"));
+        var viewModel = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "ViewModels", "Phase11DProgramActivationViewModel.cs"));
+        foreach (var required in new[]
+                 {
+                     "RequestProgramRuleChange", "ProgramChangeAuthorizationId.Value", "TargetHashChanged",
+                     "UnsupportedPersistentPolicy", "TransactionRolledBack", "RecoverySucceeded",
+                     "Saved desktop state will not overwrite service recovery"
+                 })
+            StringAssert.Contains(workflow + viewModel, required);
+        foreach (var prohibited in new[]
+                 {
+                     "Guid.Empty", "New-NetFirewallRule", "Remove-NetFirewallRule", "Set-DnsClientServerAddress",
+                     "Process.Start", "sc.exe", "RunAs", "Start-Service", "New-Service"
+                 })
+            Assert.IsFalse((workflow + viewModel).Contains(prohibited, StringComparison.OrdinalIgnoreCase), prohibited);
+
+        var discovery = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Windows", "Discovery", "WindowsStateDiscovery.cs"));
+        StringAssert.Contains(discovery, "QuietShieldService");
+    }
+
+    [TestMethod]
+    public void RepositoryToolchainPreflightHonorsCompatibleServicingPatchSemantics()
+    {
+        var scriptPath = Path.Combine(
+            RepositoryRoot,
+            "scripts",
+            "Test-QuietShieldSdkCompatibility.ps1");
+        var startInfo = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath })
+            startInfo.ArgumentList.Add(argument);
+
+        using var process = System.Diagnostics.Process.Start(startInfo);
+        Assert.IsNotNull(process);
+        var standardOutput = process.StandardOutput.ReadToEndAsync();
+        var standardError = process.StandardError.ReadToEndAsync();
+        Assert.IsTrue(process.WaitForExit(15_000), "The SDK compatibility regression test timed out.");
+        process.WaitForExit();
+        var output = standardOutput.GetAwaiter().GetResult();
+        var error = standardError.GetAwaiter().GetResult();
+        Assert.AreEqual(0, process.ExitCode, error);
+
+        using var result = System.Text.Json.JsonDocument.Parse(output);
+        Assert.AreEqual("Passed", result.RootElement.GetProperty("status").GetString());
+        var checks = result.RootElement.GetProperty("checks");
+        foreach (var checkName in new[]
+                 {
+                     "exactRequestedPatchAccepted",
+                     "laterSameFeatureBandPatchAccepted",
+                     "earlierPatchRejected",
+                     "nextFeatureBandRejected",
+                     "prereleaseRejected",
+                     "differentRollForwardPolicyRejected",
+                     "visualStudioBaselinePatchAccepted",
+                     "visualStudioNewerServicingPatchAccepted",
+                     "visualStudioOlderServicingPatchRejected",
+                     "visualStudioDifferentFeatureLineRejected",
+                     "visualStudioIncompleteRejected",
+                     "visualStudioUnlaunchableRejected",
+                     "visualStudioPrereleaseRejected"
+                 })
+            Assert.IsTrue(checks.GetProperty(checkName).GetBoolean(), checkName);
     }
 
     private static string FindRepositoryRoot()

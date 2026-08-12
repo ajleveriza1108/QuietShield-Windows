@@ -8,8 +8,8 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>QuietShield.App</AssemblyName>
     <RootNamespace>QuietShield.App</RootNamespace>
-    <Version>0.10.1</Version>
-    <AssemblyInformationalVersion>0.10.1-controlled-service-activation-foundation</AssemblyInformationalVersion>
+    <Version>0.11.0</Version>
+    <AssemblyInformationalVersion>0.11.0-desktop-protection-workflow</AssemblyInformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 

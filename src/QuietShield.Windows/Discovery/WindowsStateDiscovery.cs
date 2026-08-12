@@ -64,7 +64,7 @@ public sealed class ReadOnlyFirewallStateDiscovery : IFirewallStateDiscovery
 
 public sealed class ReadOnlyWindowsServiceStateDiscovery : IWindowsServiceStateDiscovery
 {
-    private const string Script = "$items=@(Get-Service -Name 'QuietShield','QuietShield.Service','BFE','mpssvc','netprofm' -ErrorAction SilentlyContinue | ForEach-Object { [pscustomobject]@{ Name=$_.Name; Status=$_.Status.ToString() } }); $items | ConvertTo-Json -Depth 3 -Compress";
+    private const string Script = "$items=@(Get-Service -Name 'QuietShieldService','QuietShield','QuietShield.Service','BFE','mpssvc','netprofm' -ErrorAction SilentlyContinue | ForEach-Object { [pscustomobject]@{ Name=$_.Name; Status=$_.Status.ToString() } }); $items | ConvertTo-Json -Depth 3 -Compress";
     private readonly IPowerShellJsonRunner _runner;
 
     public ReadOnlyWindowsServiceStateDiscovery(IPowerShellJsonRunner runner) => _runner = runner;
@@ -94,7 +94,7 @@ public sealed class ReadOnlyWindowsServiceStateDiscovery : IWindowsServiceStateD
                 }
             }
 
-            var quietShield = states.ContainsKey("QuietShield") ? "QuietShield" : states.ContainsKey("QuietShield.Service") ? "QuietShield.Service" : "QuietShield";
+            var quietShield = states.ContainsKey("QuietShieldService") ? "QuietShieldService" : states.ContainsKey("QuietShield") ? "QuietShield" : states.ContainsKey("QuietShield.Service") ? "QuietShield.Service" : "QuietShieldService";
             var snapshot = new ServiceStateSnapshot(
                 Create(quietShield, states),
                 Create("BFE", states),

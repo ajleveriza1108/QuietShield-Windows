@@ -76,11 +76,11 @@ Detailed evidence is preserved in `PHASE-11C-INSTALLED-APP-REPORT.md`.
 - No WFP, adapter, certificate, startup, or unrelated Firewall modification is authorized by Phase 11C.
 - `main` remains unchanged until the full Phase 11 integration gate passes.
 
-## Next gate - Phase 11D
+## Phase 11D - Passed
 
-Phase 11D is the desktop customer activation workflow and lifecycle integration gate.
+Phase 11A, Phase 11B, Phase 11C, and Phase 11D have all passed their respective validation gates.
 
-It should integrate the validated service path with customer-facing workflow semantics while retaining:
+Phase 11D integrates the validated service path with customer-facing workflow semantics while retaining:
 
 - explicit executable authorization;
 - exact path / SHA-256 / path-derived identity checks;
@@ -94,4 +94,17 @@ It should integrate the validated service path with customer-facing workflow sem
 - zero unrelated Firewall changes;
 - regression and dry validation before any full Phase 11 merge.
 
-Do not merge `feature/phase-11-integration-stabilization` to `main` until Phase 11D and final Phase 11 regression validation pass.
+Validated Phase 11D evidence:
+
+- Windows PowerShell 5.1 parsing: Passed, 43 scripts
+- Automated tests: Passed, 378/378
+- Debug and Release x64 builds: Passed
+- Visual Studio 2026 MSBuild Release x64: Passed
+- WPF/IPC customer-workflow smoke: Passed
+- Protected persistent Windows state: Unchanged
+- QuietShield service and Firewall-rule residue: Zero
+- System changes: None
+
+Permanent Phase 11D evidence is recorded in `PHASE-11D-DESKTOP-ACTIVATION-REPORT.md`.
+
+The feature branch may proceed to the separately requested final Phase 11 integration gate. Do not merge `feature/phase-11-integration-stabilization` to `main` early.

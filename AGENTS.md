@@ -26,7 +26,8 @@ Do not merge `main` early.
 - Phase 11A: **PASSED**
 - Phase 11B: **PASSED**
 - Phase 11C: **PASSED**
-- Next gate: **Phase 11D — Desktop customer activation workflow + lifecycle integration**
+- Phase 11D: **PASSED**
+- Next gate: **Final Phase 11 integration gate; do not merge `main` without an explicit request**
 
 Permanent evidence:
 
@@ -35,6 +36,7 @@ Permanent evidence:
 - `PHASE-11B-PROGRAM-TARGET-REPORT.md`
 - `PHASE-11C-INSTALLED-APP-DESIGN.md`
 - `PHASE-11C-INSTALLED-APP-REPORT.md`
+- `PHASE-11D-DESKTOP-ACTIVATION-REPORT.md`
 
 Read only the reports needed for the current task.
 
@@ -235,6 +237,14 @@ For robust capture use `System.Diagnostics.Process` with:
 - wait for stream tasks before parsing
 
 Do not parse mixed console/build output as JSON. Validate generated files on disk instead.
+
+## Toolchain compatibility
+
+- Honor `global.json` roll-forward semantics. With `10.0.302` and `latestPatch`, a stable SDK such as `10.0.303` in the same `10.0.3xx` feature band is compatible.
+- Require Visual Studio 2026 Community from the validated installation path, complete and launchable, with Managed Desktop, NuGet, and MSBuild capabilities.
+- Treat Visual Studio `18.8.x` servicing patches as compatible when they are at least the validated `18.8.2` baseline; do not pin the full installation build string.
+- Reject incompatible feature lines, missing capabilities, incomplete/unlaunchable instances, prerelease toolchains, or toolchains that fail a real build/test.
+- Do not install, downgrade, or modify a toolchain merely to match a historical servicing-patch string.
 
 Avoid broad string replacement. Patch exact anchored blocks.
 

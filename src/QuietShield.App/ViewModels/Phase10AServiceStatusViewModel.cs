@@ -7,6 +7,7 @@ namespace QuietShield.App.ViewModels;
 
 public sealed partial class MainViewModel
 {
+    private ServiceStatusSnapshot? _lastServiceStatus;
     private string _serviceInstallationStatus = "Service endpoint not connected";
     private string _serviceCommunicationStatus = "Not connected";
     private string _persistentEnforcementStatus = "Not available until the service is running";
@@ -65,6 +66,7 @@ public sealed partial class MainViewModel
             }
 
             ServiceInstallationStatus = status.InstallationStatus;
+            _lastServiceStatus = status;
             ServiceCommunicationStatus = status.CommunicationStatus;
             PersistentEnforcementStatus = status.PersistentEnforcementStatus;
             ServiceActiveProfile = status.ActiveProfile;
@@ -77,6 +79,7 @@ public sealed partial class MainViewModel
             PersistentEnforcementAvailable = status.PersistentEnforcementAvailable
                 ? "Yes — validated service engine"
                 : "No";
+            ReconcilePhase11DWorkflow(false);
         }
         catch (Exception exception) when (
             exception is IOException or
@@ -84,10 +87,12 @@ public sealed partial class MainViewModel
             TimeoutException or
             OperationCanceledException)
         {
+            _lastServiceStatus = null;
             ApplyUnavailableServiceStatus(
                 cancellationToken.IsCancellationRequested
                     ? "Service status query cancelled."
                     : "Service endpoint unavailable.");
+            ReconcilePhase11DWorkflow(true);
         }
     }
 

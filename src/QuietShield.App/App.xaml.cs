@@ -80,12 +80,16 @@ public partial class App : Application
         }
         builder.Services.AddSingleton<IProfileSelectionStore>(_ => new JsonProfileSelectionStore(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietShield", "Profiles", "selected-profile.json")));
+        builder.Services.AddSingleton<IDesktopProgramPolicyStore>(_ => new JsonDesktopProgramPolicyStore(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietShield", "ProgramLock", "desktop-policy.json")));
+        builder.Services.AddSingleton<WindowsInstalledProgramTargetValidator>();
         builder.Services.AddSingleton<IQuietShieldServiceClient>(_ =>
         {
             var pipeName = GetArgumentValue(e.Args, "--service-pipe-name") ?? QuietShieldServiceProtocol.ProductionPipeName;
             return new NamedPipeQuietShieldServiceClient(pipeName, TimeSpan.FromSeconds(3),
                 !pipeName.Equals(QuietShieldServiceProtocol.ProductionPipeName, StringComparison.Ordinal));
         });
+        builder.Services.AddSingleton<DesktopProgramActivationWorkflow>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
 
