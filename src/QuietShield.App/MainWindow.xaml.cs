@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using QuietShield.App.Controls;
 using QuietShield.App.ViewModels;
@@ -50,23 +51,92 @@ public partial class MainWindow : Window
         UpdateLayout();
     }
 
-    private void OnNavigationToggleClick(object sender, RoutedEventArgs args)
+    private void OnNavigationToggleClick(object sender, RoutedEventArgs args) =>
+        ToggleNavigation();
+
+    private void OnBrandMouseLeftButtonUp(object sender, MouseButtonEventArgs args)
+    {
+        if (args.ChangedButton == MouseButton.Left)
+        {
+            ToggleNavigation();
+        }
+    }
+
+    private void OnWindowPreviewKeyDown(object sender, KeyEventArgs args)
+    {
+        if (args.Key == Key.B && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            ToggleNavigation();
+            args.Handled = true;
+        }
+    }
+
+    private void ToggleNavigation()
     {
         _userRequestedCompactNavigation = !_userRequestedCompactNavigation;
         ApplyResponsiveLayout();
     }
 
-    private void OnSizeChanged(object sender, SizeChangedEventArgs args) => ApplyResponsiveLayout();
+    private void OnTitleBarMouseLeftButtonDown(object sender, MouseButtonEventArgs args)
+    {
+        if (args.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
+        if (args.ClickCount == 2)
+        {
+            ToggleMaximizeRestore();
+            return;
+        }
+
+        if (args.ButtonState == MouseButtonState.Pressed)
+        {
+            DragMove();
+        }
+    }
+
+    private void OnMinimizeClick(object sender, RoutedEventArgs args) =>
+        WindowState = WindowState.Minimized;
+
+    private void OnMaximizeRestoreClick(object sender, RoutedEventArgs args) =>
+        ToggleMaximizeRestore();
+
+    private void OnCloseClick(object sender, RoutedEventArgs args) =>
+        Close();
+
+    private void ToggleMaximizeRestore() =>
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs args) =>
+        ApplyResponsiveLayout();
 
     private void ApplyResponsiveLayout()
     {
-        if (!IsInitialized) return;
+        if (!IsInitialized)
+        {
+            return;
+        }
+
         var width = ActualWidth > 0d ? ActualWidth : Width;
-        var mode = ResponsiveLayout.GetNavigationMode(width, _userRequestedCompactNavigation);
-        NavigationColumn.Width = new GridLength(ResponsiveLayout.GetNavigationWidth(mode));
-        _viewModel.IsNavigationCompact = mode == NavigationDisplayMode.Compact;
+
+        if (_userRequestedCompactNavigation)
+        {
+            NavigationColumn.Width = new GridLength(64d);
+            _viewModel.IsNavigationCompact = true;
+        }
+        else
+        {
+            var mode = ResponsiveLayout.GetNavigationMode(width, false);
+            NavigationColumn.Width = new GridLength(ResponsiveLayout.GetNavigationWidth(mode));
+            _viewModel.IsNavigationCompact = mode == NavigationDisplayMode.Compact;
+        }
+
         var padding = ResponsiveLayout.GetPagePadding(width);
-        PageShell.Margin = new Thickness(padding);
+        var compactPadding = Math.Max(12d, Math.Min(padding, 18d));
+        PageShell.Margin = new Thickness(compactPadding, 6d, compactPadding, 14d);
     }
 
     private void OnSourceInitialized(object? sender, EventArgs args)
@@ -77,7 +147,8 @@ public partial class MainWindow : Window
         ApplyResponsiveLayout();
     }
 
-    private void OnClosing(object? sender, CancelEventArgs args) => WindowPlacementCoordinator.Save(this, _placementStore);
+    private void OnClosing(object? sender, CancelEventArgs args) =>
+        WindowPlacementCoordinator.Save(this, _placementStore);
 
     private void OnClosed(object? sender, EventArgs args)
     {
@@ -85,7 +156,12 @@ public partial class MainWindow : Window
         _source = null;
     }
 
-    private IntPtr WindowProcedure(IntPtr window, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    private IntPtr WindowProcedure(
+        IntPtr window,
+        int message,
+        IntPtr wParam,
+        IntPtr lParam,
+        ref bool handled)
     {
         if (message == WmPowerBroadcast && wParam.ToInt32() == PbtApmResumeAutomatic)
         {

@@ -3,55 +3,64 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Focusable="False"
              KeyboardNavigation.TabNavigation="Continue">
-    <Grid>
+    <Grid Background="Transparent">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Margin="0,0,0,14">
-            <TextBlock x:Name="PageTitleText"
-                       Style="{StaticResource PageTitleStyle}"
-                       Text="{Binding Title, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}" />
-            <TextBlock x:Name="PageDescriptionText"
-                       Margin="0,5,0,0"
-                       Style="{StaticResource ExplanatoryTextStyle}"
-                       Text="{Binding Description, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}" />
-            <WrapPanel Margin="0,10,0,0"
-                       KeyboardNavigation.TabNavigation="Local">
-                <ContentPresenter Content="{Binding PrimaryActions, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}" />
-            </WrapPanel>
-        </StackPanel>
+        <Grid Margin="0,0,0,9">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
-        <Border Grid.Row="1"
-                Margin="0,0,0,14"
-                Style="{StaticResource StatusBadgeStyle}"
-                Visibility="{Binding StatusText, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}, Converter={StaticResource StringToVisibilityConverter}}">
-            <TextBlock FontSize="11"
-                       FontWeight="SemiBold"
-                       Foreground="{StaticResource AccentBrush}"
-                       Text="{Binding StatusText, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                       TextWrapping="Wrap" />
-        </Border>
+            <StackPanel>
+                <TextBlock x:Name="PageTitleText"
+                           FontSize="27"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource PrimaryTextBrush}"
+                           Text="{Binding Title, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                           TextWrapping="Wrap" />
+
+                <TextBlock x:Name="PageDescriptionText"
+                           Margin="0,2,0,0"
+                           MaxWidth="820"
+                           HorizontalAlignment="Left"
+                           FontSize="12"
+                           Foreground="{StaticResource SecondaryTextBrush}"
+                           Text="{Binding Description, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                           TextWrapping="Wrap" />
+
+                <WrapPanel Margin="0,6,0,0"
+                           KeyboardNavigation.TabNavigation="Local">
+                    <ContentPresenter Content="{Binding PrimaryActions, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}" />
+                </WrapPanel>
+            </StackPanel>
+
+            <Border Grid.Column="1"
+                    Margin="12,3,0,0"
+                    VerticalAlignment="Top"
+                    Style="{StaticResource GlassPillStyle}"
+                    Visibility="{Binding StatusText, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}, Converter={StaticResource StringToVisibilityConverter}}">
+                <TextBlock MaxWidth="210"
+                           FontSize="10"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource InformationBrush}"
+                           Text="{Binding StatusText, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                           TextWrapping="Wrap" />
+            </Border>
+        </Grid>
 
         <ScrollViewer x:Name="PageScroller"
-                      Grid.Row="2"
+                      Grid.Row="1"
+                      Background="Transparent"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto"
                       CanContentScroll="False"
                       Focusable="False"
                       AutomationProperties.Name="Scrollable page content">
-            <StackPanel>
-                <ContentPresenter Content="{Binding PageContent, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}" />
-                <Border Margin="0,14,0,0"
-                        Padding="12,9"
-                        Background="{StaticResource SurfaceRaisedBrush}"
-                        CornerRadius="7">
-                    <TextBlock Style="{StaticResource ExplanatoryTextStyle}"
-                               Text="Safety boundary: QuietShield Windows is a read-only application foundation. No Windows network or security setting is changed." />
-                </Border>
-            </StackPanel>
+            <ContentPresenter Content="{Binding PageContent, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}" />
         </ScrollViewer>
     </Grid>
 </UserControl>
