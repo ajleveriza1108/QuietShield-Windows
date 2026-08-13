@@ -20,6 +20,8 @@ public partial class MainWindow : Window
     private HwndSource? _source;
     private bool _userRequestedCompactNavigation;
 
+    internal bool CloseToTrayEnabled { get; set; }
+
     public MainWindow(
         MainViewModel viewModel,
         IWindowPlacementStore placementStore,
@@ -147,8 +149,32 @@ public partial class MainWindow : Window
         ApplyResponsiveLayout();
     }
 
-    private void OnClosing(object? sender, CancelEventArgs args) =>
+    private void OnClosing(object? sender, CancelEventArgs args)
+    {
         WindowPlacementCoordinator.Save(this, _placementStore);
+
+        if (!CloseToTrayEnabled)
+        {
+            return;
+        }
+
+        args.Cancel = true;
+        ShowInTaskbar = false;
+        Hide();
+    }
+
+    internal void ShowFromTray()
+    {
+        ShowInTaskbar = true;
+        Show();
+
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Activate();
+    }
 
     private void OnClosed(object? sender, EventArgs args)
     {

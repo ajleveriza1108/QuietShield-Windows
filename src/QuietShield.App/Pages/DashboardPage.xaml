@@ -4,6 +4,45 @@
              xmlns:controls="clr-namespace:QuietShield.App.Controls"
              Focusable="False">
     <StackPanel>
+        <Border Margin="0,0,0,12"
+                Style="{StaticResource ConceptCardStyle}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <TextBlock Style="{StaticResource EyebrowTextStyle}"
+                               Text="OPERATING MODE" />
+                    <TextBlock Margin="0,4,0,0"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource InformationBrush}"
+                               Text="{Binding OperatingModeDisplay}" />
+                    <TextBlock Margin="0,3,0,0"
+                               FontSize="10"
+                               Foreground="{StaticResource SecondaryTextBrush}"
+                               Text="{Binding DataSavingPlanSummary}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Margin="18,0,0,0"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Button MinWidth="110"
+                            Margin="0,0,7,0"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding UseDataSavingModeCommand}"
+                            Content="Data Saving" />
+                    <Button MinWidth="100"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding UseWiFiModeCommand}"
+                            Content="Wi-Fi Mode" />
+                </StackPanel>
+            </Grid>
+        </Border>
         <!-- Hero matches the concept hierarchy, but the text remains bound to real QuietShield state. -->
         <Border Style="{StaticResource HeroCardStyle}"
                 AutomationProperties.Name="Current QuietShield protection state">

@@ -5,8 +5,11 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using QuietShield.App.DataSaving;
+using QuietShield.App.Tray;
 using QuietShield.App.ViewModels;
 using QuietShield.App.Windowing;
+using QuietShield.Core.DataSaving;
 using QuietShield.Core.Dns;
 using QuietShield.Core.ServiceFoundation;
 using QuietShield.Licensing;
@@ -23,10 +26,19 @@ public partial class App : Application
 {
     private static readonly JsonSerializerOptions GuiValidationSerializerOptions = new() { WriteIndented = true };
     private IHost? _host;
+    private QuietShieldTrayIcon? _trayIcon;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        var isSmokeRun = e.Args.Any(static argument =>
+            argument.Contains("smoke", StringComparison.OrdinalIgnoreCase));
+
+        if (!isSmokeRun)
+        {
+            ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
+        }
 
         var builder = Host.CreateApplicationBuilder(e.Args);
         builder.Logging.ClearProviders();
@@ -53,6 +65,9 @@ public partial class App : Application
         builder.Services.AddSingleton<IPowerStateDiscovery, ReadOnlyPowerStateDiscovery>();
         builder.Services.AddSingleton<IReadOnlyProgramLockWindowsCapability, ReadOnlyProgramLockWindowsCapability>();
         builder.Services.AddSingleton<ISystemTrayFoundation, FoundationSystemTrayService>();
+        builder.Services.AddSingleton<QuietShieldTrayIcon>();
+        builder.Services.AddSingleton<IOperatingModeStore>(_ => new JsonOperatingModeStore(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietShield", "Modes", "operating-mode.json")));
         builder.Services.AddSingleton<INetworkRefreshNotificationSource, WindowsNetworkRefreshNotificationSource>();
         builder.Services.AddSingleton<IReadOnlyDiscoveryCoordinator, ReadOnlyDiscoveryCoordinator>();
         builder.Services.AddSingleton<IPrivacySafeDiagnosticExporter, PrivacySafeDiagnosticExporter>();
@@ -69,7 +84,7 @@ public partial class App : Application
         builder.Services.AddSingleton<IDnsRehearsalReadinessDiscovery, ReadOnlyDnsRehearsalReadinessDiscovery>();
         builder.Services.AddSingleton<ILicenseService, FoundationLicenseService>();
         builder.Services.AddSingleton<IDisplayWorkAreaProvider, WindowsDisplayWorkAreaProvider>();
-        if (e.Args.Any(static argument => argument.Contains("smoke", StringComparison.OrdinalIgnoreCase)))
+        if (isSmokeRun)
         {
             builder.Services.AddSingleton<IWindowPlacementStore, InMemoryWindowPlacementStore>();
         }
@@ -102,6 +117,13 @@ public partial class App : Application
 
         var viewModel = _host.Services.GetRequiredService<MainViewModel>();
         await viewModel.InitializeAsync(CancellationToken.None).ConfigureAwait(true);
+
+        if (!isSmokeRun)
+        {
+            window.CloseToTrayEnabled = true;
+            _trayIcon = _host.Services.GetRequiredService<QuietShieldTrayIcon>();
+            _trayIcon.Initialize(window, viewModel, RequestExit);
+        }
 
         var diagnosticOutputIndex = Array.FindIndex(e.Args, static argument => argument.Equals("--diagnostic-output", StringComparison.OrdinalIgnoreCase));
         if (diagnosticOutputIndex >= 0 && diagnosticOutputIndex + 1 < e.Args.Length)
@@ -259,6 +281,26 @@ public partial class App : Application
         }
     }
 
+    private void RequestExit()
+    {
+        if (MainWindow is MainWindow window)
+        {
+            window.CloseToTrayEnabled = false;
+        }
+
+        Shutdown();
+    }
+
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        if (MainWindow is MainWindow window)
+        {
+            window.CloseToTrayEnabled = false;
+        }
+
+        base.OnSessionEnding(e);
+    }
+
     private static string? GetArgumentValue(string[] arguments, string name)
     {
         for (var index = 0; index < arguments.Length - 1; index++)
@@ -270,6 +312,9 @@ public partial class App : Application
 
     protected override async void OnExit(ExitEventArgs e)
     {
+        _trayIcon?.Dispose();
+        _trayIcon = null;
+
         if (_host is not null)
         {
             await _host.StopAsync(TimeSpan.FromSeconds(3)).ConfigureAwait(true);

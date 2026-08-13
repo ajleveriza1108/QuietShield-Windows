@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Microsoft.Extensions.Logging;
 using QuietShield.Core.ConnectionLock;
+using QuietShield.Core.DataSaving;
 using QuietShield.Core.Dns;
 using QuietShield.Core.Protection;
 using QuietShield.Core.Simulation;
@@ -95,6 +96,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         IPrivacySafeDiagnosticExporter diagnostics,
         ILicenseService licenseService,
         ISystemTrayFoundation systemTray,
+        IOperatingModeStore operatingModeStore,
         ProtectionListActivator dnsListActivator,
         IProtectionListStore dnsListStore,
         ICustomDomainListService customDnsLists,
@@ -111,6 +113,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _diagnostics = diagnostics;
         _licenseService = licenseService;
         _systemTray = systemTray;
+        _operatingModeStore = operatingModeStore;
         _dnsListActivator = dnsListActivator;
         _dnsListStore = dnsListStore;
         _customDnsLists = customDnsLists;
@@ -131,7 +134,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             new("Program Connection Lock", "Persistent Blocked/Allowed on All when the validated service is available; network-specific choices remain simulated.", "\uE839", "SERVICE-AWARE"),
             new("Protection Profiles", "Preview local protection profiles without applying them.", "\uE77B", "SIMULATION ONLY"),
             new("Schedules", "Preview schedule behavior without creating tasks or startup entries.", "\uE787", "SIMULATION ONLY"),
-            new("Metered and Cellular Data Watch", "Current Windows metered state; no traffic accounting.", "\uE9D9", "READ-ONLY"),
+            new("Data Saving & Wi-Fi", "Create limited-data profiles, choose user apps, and switch quickly from the system tray.", "\uE9D9", "LOCAL PROFILE"),
             new("Aggressive Program Watch", "Program monitoring is planned and currently inactive.", "\uE7BA", "NOT ACTIVE"),
             new("Compatibility Guard", "Preview compatibility exclusions without changing Windows.", "\uE8D4", "SIMULATION ONLY"),
             new("DNS Protection", "Local DNS policy simulation; Windows DNS remains unchanged.", "\uE774", "ACTIVATION BLOCKED"),
@@ -151,6 +154,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         ExportDiagnosticsCommand = new AsyncRelayCommand(ExportDiagnosticsAsync, () => _bundle is not null && !IsRefreshing);
         InitializeDnsCommands();
         InitializeDnsRuntimeCommands();
+        InitializeOperatingModeCommands();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -178,7 +182,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private static readonly string[] PageVisibilityProperties =
     {
-        nameof(IsDashboard), nameof(IsProgramConnectionLock), nameof(IsProtectionProfiles), nameof(IsSchedules), nameof(IsCompatibilityGuard), nameof(IsMeteredDataWatch),
+        nameof(IsDashboard), nameof(IsProgramConnectionLock), nameof(IsProtectionProfiles), nameof(IsSchedules), nameof(IsCompatibilityGuard), nameof(IsDataSavingModes), nameof(IsMeteredDataWatch),
         nameof(IsAggressiveProgramWatch), nameof(IsDnsProtection), nameof(IsDnsLists), nameof(IsActivity), nameof(IsLicensing), nameof(IsSettings), nameof(IsGenericPage)
     };
 
@@ -187,6 +191,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsProtectionProfiles => SelectedPage.Title == "Protection Profiles";
     public bool IsSchedules => SelectedPage.Title == "Schedules";
     public bool IsCompatibilityGuard => SelectedPage.Title == "Compatibility Guard";
+    public bool IsDataSavingModes => SelectedPage.Title == "Data Saving & Wi-Fi";
     public bool IsMeteredDataWatch => SelectedPage.Title == "Metered and Cellular Data Watch";
     public bool IsAggressiveProgramWatch => SelectedPage.Title == "Aggressive Program Watch";
     public bool IsDnsProtection => SelectedPage.Title == "DNS Protection";
@@ -194,7 +199,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsActivity => SelectedPage.Title == "Activity and Statistics";
     public bool IsLicensing => SelectedPage.Title == "Licensing";
     public bool IsSettings => SelectedPage.Title == "Settings";
-    public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsProtectionProfiles || IsSchedules || IsCompatibilityGuard || IsMeteredDataWatch || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings);
+    public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsProtectionProfiles || IsSchedules || IsCompatibilityGuard || IsDataSavingModes || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings);
     public string VersionText { get; } = "Version " +
         (typeof(MainViewModel).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "Unknown") +
         " - Desktop Protection Workflow";
@@ -244,6 +249,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         TraySummary = tray.Message;
         await InitializeDnsFoundationAsync(cancellationToken).ConfigureAwait(true);
         await InitializeDnsRehearsalReadinessAsync(cancellationToken).ConfigureAwait(true);
+        await InitializeOperatingModeAsync(cancellationToken).ConfigureAwait(true);
         await LoadPhase11DDesktopPolicyAsync(cancellationToken).ConfigureAwait(true);
         await RefreshAsync(false).ConfigureAwait(true);
         await InitializePersistentServiceFoundationAsync(cancellationToken).ConfigureAwait(true);
@@ -316,6 +322,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _allApplications.Clear();
         foreach (var app in bundle.Applications) _allApplications.Add(new ApplicationListItem(app));
         ApplyFilter();
+        RebuildDataSavingApplications();
         NetworkSummary = bundle.Network?.Summary ?? "Network discovery unavailable";
         NetworkTypeSummary = bundle.Network?.PrimaryKind.ToString() ?? "Unavailable";
         MeteredStatusSummary = bundle.Network?.Cost switch

@@ -272,6 +272,7 @@
                     <Grid>
                         <pages:DashboardPage Visibility="{Binding IsDashboard, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <pages:ProgramConnectionLockPage Visibility="{Binding IsProgramConnectionLock, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <pages:DataSavingPage Visibility="{Binding IsDataSavingModes, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <pages:ProtectionProfilesPage Visibility="{Binding IsProtectionProfiles, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <pages:SchedulesPage Visibility="{Binding IsSchedules, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <pages:CompatibilityGuardPage Visibility="{Binding IsCompatibilityGuard, Converter={StaticResource BooleanToVisibilityConverter}}" />
