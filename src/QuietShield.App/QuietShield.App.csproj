@@ -1,6 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <ApplicationIcon>Assets\QuietShield_Tray.ico</ApplicationIcon>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
@@ -25,4 +26,30 @@
     <Compile Remove="ViewModels\MainViewModel.cs" />
   </ItemGroup>
 
-</Project>
+
+  <ItemGroup>
+    <None Remove="Assets\QuietShield.png" />
+    <Resource Include="Assets\QuietShield.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Assets\QuietShield.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Assets\QuietShield.ico</TargetPath>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Assets\QuietShield_PB.png" />
+    <Resource Include="Assets\QuietShield_PB.png" />
+  </ItemGroup>  <ItemGroup>
+    <None Remove="Assets\QuietShield_UI.png" />
+    <Resource Include="Assets\QuietShield_UI.png" />
+  </ItemGroup>  <ItemGroup>
+    <None Remove="Assets\QuietShield_PB_UI.png" />
+    <Resource Include="Assets\QuietShield_PB_UI.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Assets\QuietShield_Tray.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Assets\QuietShield_Tray.ico</TargetPath>
+    </None>
+  </ItemGroup></Project>

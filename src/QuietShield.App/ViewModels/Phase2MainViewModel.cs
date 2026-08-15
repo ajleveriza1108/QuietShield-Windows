@@ -72,7 +72,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private SimulatedConnectionType _selectedConnectionType = SimulatedConnectionType.Unknown;
     private ProgramConnectionPolicy _selectedPolicy = ProgramConnectionPolicy.AllowedOnAll;
     private ProtectionMode _selectedProfileMode = ProtectionMode.Standard;
-    private string _networkSummary = "Read-only detection pending";
+    private string _networkSummary = "Detection pending";
     private string _networkTypeSummary = "Pending";
     private string _meteredStatusSummary = "Pending";
     private string _firewallSummary = "Pending";
@@ -84,7 +84,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private string _powerSummary = "Pending";
     private string _simulationDecision = "Select an application to simulate a policy.";
     private string _simulationReason = PolicySimulationResult.SimulationOnlyLabel;
-    private string _lastActionStatus = "Ready for read-only discovery.";
+    private string _lastActionStatus = "Ready for local testing.";
     private string _licenseSummary = LicenseSnapshot.Foundation.DisplayStatus;
     private string _traySummary = "System tray foundation inactive";
     private bool _isRefreshing;
@@ -129,25 +129,24 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         InitializeProgramLockTransactions();
         NavigationItems = new ObservableCollection<NavigationItem>
         {
-            new("Dashboard", "Foundation status and current read-only discovery.", "\uE80F", "READ-ONLY FOUNDATION", true),
-            new("Protection", "Protection overview; enforcement remains disabled.", "\uEA18", "NOT ACTIVE"),
-            new("Program Connection Lock", "Persistent Blocked/Allowed on All when the validated service is available; network-specific choices remain simulated.", "\uE839", "SERVICE-AWARE"),
-            new("Protection Profiles", "Preview local protection profiles without applying them.", "\uE77B", "SIMULATION ONLY"),
-            new("Schedules", "Preview schedule behavior without creating tasks or startup entries.", "\uE787", "SIMULATION ONLY"),
-            new("Data Saving & Wi-Fi", "Create limited-data profiles, choose user apps, and switch quickly from the system tray.", "\uE9D9", "LOCAL PROFILE"),
-            new("Aggressive Program Watch", "Program monitoring is planned and currently inactive.", "\uE7BA", "NOT ACTIVE"),
-            new("Compatibility Guard", "Preview compatibility exclusions without changing Windows.", "\uE8D4", "SIMULATION ONLY"),
-            new("DNS Protection", "Local DNS policy simulation; Windows DNS remains unchanged.", "\uE774", "ACTIVATION BLOCKED"),
-            new("Allowlist and Blocklist", "Manage in-memory DNS simulation entries.", "\uE8D7", "SIMULATION ONLY"),
-            new("Activity and Statistics", "Read-only discovery activity without fabricated statistics.", "\uE9D2", "READ-ONLY"),
-            new("Parent and Child Controls", "Family controls are planned and currently inactive.", "\uE716", "NOT ACTIVE"),
-            new("Private Browser", "Private browsing integration is planned and currently inactive.", "\uE727", "NOT ACTIVE"),
-            new("File Safety", "File safety integration is planned and currently inactive.", "\uE8A5", "NOT ACTIVE"),
-            new("Licensing", "View the current local licensing foundation state.", "\uE8C7", "FOUNDATION"),
-            new("Updates", "Update delivery is planned and currently inactive.", "\uE777", "NOT ACTIVE"),
-            new("Settings", "Read-only discovery, cache, and privacy-safe diagnostics.", "\uE713", "SAFE CONTROLS")
-        };
-        _selectedPage = NavigationItems[0];
+            new("Dashboard", "Current mode, service and protection status.", "\uE80F", "READY", true),
+            new("Data Saving & Wi-Fi", "Choose internet mode and which user apps belong in the Data Saving plan.", "\uE9D9", "LOCAL"),
+            new("Program Connection Lock", "Block or allow an exact installed user app through the QuietShield service.", "\uE839", "APP CONTROL"),
+            new("DNS Protection", "Test local DNS policy and resolver readiness without changing Windows DNS.", "\uE774", "GATED"),
+            new("Activity and Statistics", "Measured local activity and discovery status.", "\uE9D2", "LOCAL"),
+            new("Private Browser", "Open the WebView2 Private Browser test runtime.", "\uE727", "READY"),
+            new("File Safety", "File-risk and Defender scan backend status.", "\uE8A5", "READY"),
+            new("Settings", "Navigation, diagnostics and safe test controls.", "\uE713", "SETTINGS"),
+            new("Protection", "Advanced protection overview and service diagnostics.", "\uEA18", "ADVANCED"),
+            new("Protection Profiles", "Advanced local profile models.", "\uE77B", "ADVANCED"),
+            new("Schedules", "Advanced schedule evaluation.", "\uE787", "ADVANCED"),
+            new("Aggressive Program Watch", "Program-observation backend readiness.", "\uE7BA", "ADVANCED"),
+            new("Compatibility Guard", "Compatibility classifications and exclusions.", "\uE8D4", "ADVANCED"),
+            new("Allowlist and Blocklist", "Custom DNS allow/block entries.", "\uE8D7", "ADVANCED"),
+            new("Parent and Child Controls", "Parent/child policy backend readiness.", "\uE716", "ADVANCED"),
+            new("Licensing", "Signed-license development status.", "\uE8C7", "ADVANCED"),
+            new("Updates", "Signed update staging status.", "\uE777", "ADVANCED")
+        };        _selectedPage = NavigationItems[0];
         RefreshCommand = new AsyncRelayCommand(() => RefreshAsync(true), () => !IsRefreshing);
         CancelCommand = new AsyncRelayCommand(CancelAsync, () => IsRefreshing);
         ClearCacheCommand = new AsyncRelayCommand(ClearCacheAsync, () => !IsRefreshing);
@@ -155,6 +154,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         InitializeDnsCommands();
         InitializeDnsRuntimeCommands();
         InitializeOperatingModeCommands();
+        InitializeGuiUsabilityR2();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -183,7 +183,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private static readonly string[] PageVisibilityProperties =
     {
         nameof(IsDashboard), nameof(IsProgramConnectionLock), nameof(IsProtectionProfiles), nameof(IsSchedules), nameof(IsCompatibilityGuard), nameof(IsDataSavingModes), nameof(IsMeteredDataWatch),
-        nameof(IsAggressiveProgramWatch), nameof(IsDnsProtection), nameof(IsDnsLists), nameof(IsActivity), nameof(IsLicensing), nameof(IsSettings), nameof(IsGenericPage)
+        nameof(IsAggressiveProgramWatch), nameof(IsDnsProtection), nameof(IsDnsLists), nameof(IsActivity), nameof(IsLicensing), nameof(IsSettings), nameof(IsProtectionOverview), nameof(IsParentChildControls), nameof(IsPrivateBrowser), nameof(IsFileSafety), nameof(IsUpdates), nameof(IsGenericPage)
     };
 
     public bool IsDashboard => SelectedPage.IsDashboard;
@@ -199,13 +199,13 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsActivity => SelectedPage.Title == "Activity and Statistics";
     public bool IsLicensing => SelectedPage.Title == "Licensing";
     public bool IsSettings => SelectedPage.Title == "Settings";
-    public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsProtectionProfiles || IsSchedules || IsCompatibilityGuard || IsDataSavingModes || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings);
+    public bool IsGenericPage => !(IsDashboard || IsProgramConnectionLock || IsProtectionProfiles || IsSchedules || IsCompatibilityGuard || IsDataSavingModes || IsAggressiveProgramWatch || IsDnsProtection || IsDnsLists || IsActivity || IsLicensing || IsSettings || IsProtectionOverview || IsParentChildControls || IsPrivateBrowser || IsFileSafety || IsUpdates);
     public string VersionText { get; } = "Version " +
         (typeof(MainViewModel).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "Unknown") +
         " - Desktop Protection Workflow";
-    public string FoundationMode { get; } = "Foundation Mode";
-    public string ProtectionState { get; } = "Protection Not Activated";
-    public string ActiveProfile { get; } = "Simulation only";
+    public string FoundationMode { get; } = "Test Mode";
+    public string ProtectionState { get; } = "Protection Ready for Testing";
+    public string ActiveProfile { get; } = "Local test profile";
     public string SimulationBanner { get; } = PolicySimulationResult.SimulationOnlyLabel;
 
     public ApplicationListItem? SelectedApplication { get => _selectedApplication; set { if (SetField(ref _selectedApplication, value)) { UpdateSimulation(); UpdatePhase11DSelection(); } } }
@@ -253,6 +253,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         await LoadPhase11DDesktopPolicyAsync(cancellationToken).ConfigureAwait(true);
         await RefreshAsync(false).ConfigureAwait(true);
         await InitializePersistentServiceFoundationAsync(cancellationToken).ConfigureAwait(true);
+        await InitializeConsumerControlCenterAsync(cancellationToken).ConfigureAwait(true);
+        InitializeDashboardBlockingCountersR40();
         LogInitializedMessage(_logger, null);
     }
 
@@ -260,6 +262,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         await RefreshAsync(false).ConfigureAwait(true);
         await RefreshPersistentServiceStatusAsync(CancellationToken.None).ConfigureAwait(true);
+        await RefreshConsumerProtectionStateAsync(CancellationToken.None).ConfigureAwait(true);
     }
 
     public async Task ExportValidationDiagnosticAsync(string destinationPath, CancellationToken cancellationToken)
@@ -274,6 +277,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         _refreshCancellation?.Cancel();
         _refreshCancellation?.Dispose();
         _refreshCancellation = null;
+        DisposeDashboardBlockingCountersR40();
         GC.SuppressFinalize(this);
     }
 
@@ -349,9 +353,9 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         var selectedId = SelectedApplication?.Id;
         Applications.Clear();
         var query = SearchText.Trim();
-        foreach (var app in _allApplications.Where(app => string.IsNullOrWhiteSpace(query) ||
+        foreach (var app in _allApplications.Where(app => ShouldShowApplicationInMainList(app) && (string.IsNullOrWhiteSpace(query) ||
                      app.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
-                     (app.Publisher?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false)))
+                     (app.Publisher?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false))))
         {
             Applications.Add(app);
         }

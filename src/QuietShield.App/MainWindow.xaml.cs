@@ -138,7 +138,7 @@ public partial class MainWindow : Window
 
         var padding = ResponsiveLayout.GetPagePadding(width);
         var compactPadding = Math.Max(12d, Math.Min(padding, 18d));
-        PageShell.Margin = new Thickness(compactPadding, 6d, compactPadding, 14d);
+        PageShell.Margin = new Thickness(compactPadding, 5d, compactPadding, 8d);
     }
 
     private void OnSourceInitialized(object? sender, EventArgs args)
@@ -189,7 +189,17 @@ public partial class MainWindow : Window
         IntPtr lParam,
         ref bool handled)
     {
-        if (message == WmPowerBroadcast && wParam.ToInt32() == PbtApmResumeAutomatic)
+        if (MaximizedWorkAreaWindowHook.TryHandle(
+            window,
+            message,
+            lParam))
+        {
+            handled = true;
+            return IntPtr.Zero;
+        }
+
+        if (message == WmPowerBroadcast &&
+            wParam.ToInt32() == PbtApmResumeAutomatic)
         {
             _ = _viewModel.RefreshAfterResumeAsync();
         }

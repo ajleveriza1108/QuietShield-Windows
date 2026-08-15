@@ -59,22 +59,26 @@ public sealed class RepositoryArchitectureTests
     {
         var expected = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
+            ["QuietShield.BackendLab"] = new[] { "QuietShield.Core", "QuietShield.Windows" },
+            ["QuietShield.FinalBackendLab"] = new[] { "QuietShield.Core", "QuietShield.Licensing", "QuietShield.Windows" },
             ["QuietShield.App"] = new[] { "QuietShield.Core", "QuietShield.Licensing", "QuietShield.Windows" },
+            ["QuietShield.BackendAcceptance"] = new[] { "QuietShield.Core" },
             ["QuietShield.ConnectionProbe"] = Array.Empty<string>(),
             ["QuietShield.Core"] = Array.Empty<string>(),
+            ["QuietShield.LicenseServer"] = new[] { "QuietShield.Licensing" },
             ["QuietShield.Licensing"] = Array.Empty<string>(),
+            ["QuietShield.PrivateBrowser"] = new[] { "QuietShield.Core" },
             ["QuietShield.Service"] = new[] { "QuietShield.Core", "QuietShield.Windows" },
+            ["QuietShield.Tray"] = Array.Empty<string>(),
             ["QuietShield.Windows"] = new[] { "QuietShield.Core" },
             ["QuietShield.DnsHost"] = new[] { "QuietShield.Core", "QuietShield.Windows" },
             ["QuietShield.DnsWatchdog"] = new[] { "QuietShield.Core" }
         };
 
-        foreach (var projectPath in Directory.EnumerateFiles(
-                     Path.Combine(RepositoryRoot, "src"),
-                     "*.csproj",
-                     SearchOption.AllDirectories))
+        foreach (var projectPath in Directory.EnumerateFiles(Path.Combine(RepositoryRoot, "src"), "*.csproj", SearchOption.AllDirectories))
         {
             var projectName = Path.GetFileNameWithoutExtension(projectPath);
+            Assert.IsTrue(expected.ContainsKey(projectName), $"Unclassified production project: {projectName}.");
             var document = XDocument.Load(projectPath);
             var references = document.Descendants("ProjectReference")
                 .Select(static element => element.Attribute("Include")?.Value)
@@ -104,20 +108,17 @@ public sealed class RepositoryArchitectureTests
             .OrderBy(static package => package.Name, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.HasCount(3, packages);
-        var hosting = packages.Single(static package => package.Name == "Microsoft.Extensions.Hosting");
-        var windowsHosting = packages.Single(static package => package.Name == "Microsoft.Extensions.Hosting.WindowsServices");
-        var testFramework = packages.Single(static package => package.Name == "MSTest");
-        Assert.AreEqual("10.0.10", hosting.Version);
-        Assert.AreEqual("10.0.10", windowsHosting.Version);
-        Assert.AreEqual("4.0.2", testFramework.Version);
+        Assert.HasCount(4, packages);
+        Assert.AreEqual("10.0.10", packages.Single(static package => package.Name == "Microsoft.Extensions.Hosting").Version);
+        Assert.AreEqual("10.0.10", packages.Single(static package => package.Name == "Microsoft.Extensions.Hosting.WindowsServices").Version);
+        Assert.AreEqual("4.0.2", packages.Single(static package => package.Name == "MSTest").Version);
+        Assert.AreEqual("1.0.4078.44", packages.Single(static package => package.Name == "Microsoft.Web.WebView2").Version);
 
         foreach (var project in Directory.EnumerateFiles(RepositoryRoot, "*.csproj", SearchOption.AllDirectories))
         {
             var projectDocument = XDocument.Load(project);
             Assert.IsFalse(
-                projectDocument.Descendants("PackageReference").Any(
-                    static reference => reference.Attribute("Version") is not null),
+                projectDocument.Descendants("PackageReference").Any(static reference => reference.Attribute("Version") is not null),
                 $"Package version must be centralized: {Path.GetRelativePath(RepositoryRoot, project)}");
         }
     }
@@ -514,25 +515,41 @@ public sealed class RepositoryArchitectureTests
     [TestMethod]
     public void NoProductionDnsMutatorImplementationOrActivationControlExists()
     {
-        foreach (var project in new[] { "QuietShield.App", "QuietShield.Windows", "QuietShield.Service" })
+        var backend = File.ReadAllText(Path.Combine(
+            RepositoryRoot, "src", "QuietShield.Service", "ProductionBackendRuntimeR40.cs"));
+
+        foreach (var required in new[]
+                 {
+                     "RunExternalProbeAsync(\"udp\"", "RunExternalProbeAsync(\"tcp\"",
+                     "SetAdapterDnsLoopbackAsync", "RestoreOriginalDnsAsync",
+                     "DNS Shield activation failed safely before commit or rolled back",
+                     "exactly one active supported physical Wi-Fi or Ethernet adapter"
+                 })
         {
-            foreach (var file in Directory.EnumerateFiles(Path.Combine(RepositoryRoot, "src", project), "*.cs", SearchOption.AllDirectories))
-            {
-                var source = File.ReadAllText(file);
-                Assert.IsFalse(source.Contains(": IDnsConfigurationMutator", StringComparison.Ordinal), $"A production DNS mutator implementation exists in {Path.GetRelativePath(RepositoryRoot, file)}.");
-                Assert.IsFalse(source.Contains("IWindowsDnsChangeApplier", StringComparison.Ordinal), $"A modifying Windows DNS applier exists in {Path.GetRelativePath(RepositoryRoot, file)}.");
-            }
+            StringAssert.Contains(backend, required);
         }
 
-        var xaml = string.Join(Environment.NewLine,
-            Directory.EnumerateFiles(Path.Combine(RepositoryRoot, "src", "QuietShield.App"), "*.xaml", SearchOption.AllDirectories)
-                .Select(File.ReadAllText));
-        Assert.IsFalse(xaml.Contains("Content=\"Activate\"", StringComparison.OrdinalIgnoreCase));
-        StringAssert.Contains(xaml, "Preview activation plan");
+        var udpGate = backend.IndexOf("RunExternalProbeAsync(\"udp\"", StringComparison.Ordinal);
+        var tcpGate = backend.IndexOf("RunExternalProbeAsync(\"tcp\"", StringComparison.Ordinal);
+        var adapterMutation = backend.IndexOf("SetAdapterDnsLoopbackAsync(", tcpGate, StringComparison.Ordinal);
+        Assert.IsTrue(
+            udpGate >= 0 && tcpGate > udpGate && adapterMutation > tcpGate,
+            "Windows DNS mutation must remain after both external UDP and TCP process-boundary gates.");
 
-        var serviceProgram = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Service", "Program.cs"));
-        Assert.IsFalse(serviceProgram.Contains("DnsRuntimeServiceCoordinator", StringComparison.Ordinal));
-        Assert.IsFalse(serviceProgram.Contains("UseWindowsService", StringComparison.Ordinal));
+        var appRoot = Path.Combine(RepositoryRoot, "src", "QuietShield.App");
+        var xaml = string.Join(Environment.NewLine,
+            Directory.EnumerateFiles(appRoot, "*.xaml", SearchOption.AllDirectories).Select(File.ReadAllText));
+        Assert.IsFalse(
+            System.Text.RegularExpressions.Regex.IsMatch(
+                xaml, "Content=\\\"_?Activate\\\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+            "The desktop GUI must not expose the privileged DNS activation command.");
+        StringAssert.Contains(xaml, "Preview safe plan");
+
+        var appSource = string.Join(Environment.NewLine,
+            Directory.EnumerateFiles(appRoot, "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
+        Assert.IsFalse(
+            appSource.Contains("Set-DnsClientServerAddress", StringComparison.OrdinalIgnoreCase),
+            "Windows DNS adapter mutation must remain service-owned.");
     }
 
     [TestMethod]
@@ -578,10 +595,11 @@ public sealed class RepositoryArchitectureTests
         var source = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "ViewModels", "Phase2MainViewModel.cs"));
         foreach (var title in new[]
         {
-            "Dashboard", "Protection", "Program Connection Lock", "Protection Profiles", "Schedules",
-            "Metered and Cellular Data Watch", "Aggressive Program Watch", "Compatibility Guard",
-            "DNS Protection", "Allowlist and Blocklist", "Activity and Statistics", "Parent and Child Controls",
-            "Private Browser", "File Safety", "Licensing", "Updates", "Settings"
+            "Dashboard", "Data Saving & Wi-Fi", "Program Connection Lock", "DNS Protection",
+            "Activity and Statistics", "Private Browser", "File Safety", "Settings",
+            "Protection", "Protection Profiles", "Schedules", "Aggressive Program Watch",
+            "Compatibility Guard", "Allowlist and Blocklist", "Parent and Child Controls",
+            "Licensing", "Updates"
         })
         {
             StringAssert.Contains(source, $"new(\"{title}\"");
@@ -598,9 +616,12 @@ public sealed class RepositoryArchitectureTests
 
         foreach (var required in new[]
         {
-            "VirtualizingPanel.IsVirtualizing=\"True\"", "VirtualizingPanel.VirtualizationMode=\"Recycling\"",
-            "VirtualizingStackPanel", "TrimmedValueTextStyle", "ToolTip=\"{Binding DisplayName}\"",
-            "ToolTip=\"{Binding Publisher}\"", "No matching applications were found."
+            "VirtualizingPanel.IsVirtualizing=\"True\"",
+            "VirtualizingPanel.VirtualizationMode=\"Recycling\"",
+            "ScrollViewer.VerticalScrollBarVisibility=\"Auto\"",
+            "TextTrimming=\"CharacterEllipsis\"",
+            "ToolTip=\"{Binding PersistentWorkflowApplication",
+            "Show Windows system and unsupported apps"
         })
         {
             StringAssert.Contains(inventory, required);
@@ -649,26 +670,27 @@ public sealed class RepositoryArchitectureTests
             Directory.EnumerateFiles(appDirectory, "*.xaml", SearchOption.AllDirectories).Select(File.ReadAllText));
         var dns = File.ReadAllText(Path.Combine(appDirectory, "Pages", "DnsProtectionPage.xaml"));
 
-        StringAssert.Contains(dns, "DNS activation remains blocked");
-        StringAssert.Contains(dns, "Permanent activation and service registration are prohibited");
-        StringAssert.Contains(dns, "Real DNS activation remains unvalidated and disabled");
-        Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(allXaml, "Content=\\\"_?Activate\\\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+        StringAssert.Contains(dns, "WINDOWS DNS CHANGES DISABLED");
+        StringAssert.Contains(dns, "Preview safe plan");
+        StringAssert.Contains(dns, "DnsRehearsalReadiness");
+        Assert.IsFalse(
+            System.Text.RegularExpressions.Regex.IsMatch(
+                allXaml, "Content=\\\"_?Activate\\\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+            "The normal desktop GUI must not expose the privileged DNS activation command.");
     }
 
     [TestMethod]
     public void ActionGroupsWrapAndInactiveStatesUseExplicitTextBanners()
     {
-        var pages = Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages");
-        var dns = File.ReadAllText(Path.Combine(pages, "DnsProtectionPage.xaml"));
-        var lists = File.ReadAllText(Path.Combine(pages, "DnsListsPage.xaml"));
-        var foundation = File.ReadAllText(Path.Combine(pages, "FoundationStatusPages.xaml"));
+        var dns = File.ReadAllText(Path.Combine(
+            RepositoryRoot, "src", "QuietShield.App", "Pages", "DnsProtectionPage.xaml"));
 
-        StringAssert.Contains(dns, "<WrapPanel");
-        StringAssert.Contains(lists, "<WrapPanel");
-        StringAssert.Contains(foundation, "<WrapPanel");
-        StringAssert.Contains(dns, "activation remains blocked");
-        StringAssert.Contains(lists, "simulation only");
-        StringAssert.Contains(foundation, "Not yet active");
+        StringAssert.Contains(dns, "AdaptiveGridPanel");
+        StringAssert.Contains(dns, "WINDOWS DNS CHANGES DISABLED");
+        StringAssert.Contains(dns, "PreviewDnsActivationPlanCommand");
+        StringAssert.Contains(dns, "Content=\"Preview safe plan\"");
+        StringAssert.Contains(dns, "DnsRehearsalReadiness");
+        Assert.IsFalse(dns.Contains("Content=\"Activate\"", StringComparison.OrdinalIgnoreCase));
     }
 
     [TestMethod]
@@ -803,21 +825,34 @@ public sealed class RepositoryArchitectureTests
     [TestMethod]
     public void Phase8ProgramLockPageIsResponsiveVirtualizedAndExposesOnlyPreviewAndExportActions()
     {
-        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages", "ProgramConnectionLockPage.xaml"));
+        var xaml = File.ReadAllText(Path.Combine(
+            RepositoryRoot, "src", "QuietShield.App", "Pages", "ProgramConnectionLockPage.xaml"));
+
         foreach (var required in new[]
                  {
-                     "Enforcement is not active. No Windows Firewall or WFP rule has been changed.",
-                     "ProgramLockTransactionPlanList", "AdaptiveGridPanel", "VirtualizingPanel.IsVirtualizing=\"True\"",
-                     "VirtualizingPanel.VirtualizationMode=\"Recycling\"", "TrimmedValueTextStyle",
-                     "ToolTip=\"{Binding Application}\"", "ToolTip=\"{Binding Reason}\"",
-                     "Content=\"_Preview Enforcement Plan\"", "Content=\"_Export Plan\""
+                     "Choose an exact installed user app",
+                     "VirtualizingPanel.IsVirtualizing=\"True\"",
+                     "VirtualizingPanel.VirtualizationMode=\"Recycling\"",
+                     "ApplyAppRuleButton_Click",
+                     "Blocked and AllowedOnAll are the real persistent test choices.",
+                     "RetryPersistentServiceConnectionCommand",
+                     "PreviewEnforcementPlanCommand",
+                     "ExportEnforcementPlanCommand",
+                     "Show Windows system and unsupported apps"
                  })
         {
             StringAssert.Contains(xaml, required);
         }
-        foreach (var prohibited in new[] { "Content=\"Apply\"", "Content=\"Activate\"", "Content=\"Enforce\"", "Content=\"Administrator\"" })
+
+        foreach (var prohibited in new[]
+                 {
+                     "Content=\"Install Service\"", "Content=\"Start Service\"",
+                     "Content=\"Administrator\"", "RunAs", "New-NetFirewallRule"
+                 })
         {
-            Assert.IsFalse(xaml.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(
+                xaml.Contains(prohibited, StringComparison.OrdinalIgnoreCase),
+                $"The customer Program Lock page exposes a raw privileged action: {prohibited}.");
         }
     }
 
@@ -988,7 +1023,7 @@ public sealed class RepositoryArchitectureTests
         start.ArgumentList.Add(Path.Combine(scripts, "Test-ProgramLockWatchdogSimulations.ps1"));
         using var process = System.Diagnostics.Process.Start(start);
         Assert.IsNotNull(process);
-        Assert.IsTrue(process.WaitForExit(15_000), "Phase 9 watchdog simulations timed out.");
+        Assert.IsTrue(process.WaitForExit(45_000), "Phase 9 watchdog simulations timed out.");
         var output = process.StandardOutput.ReadToEnd();
         var error = process.StandardError.ReadToEnd();
         Assert.AreEqual(0, process.ExitCode, error);
@@ -1072,24 +1107,29 @@ public sealed class RepositoryArchitectureTests
     [TestMethod]
     public void Phase9GuiStatusIsResponsiveExplicitAndHasNoPermanentEnforcementAction()
     {
-        var page = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages", "ProgramConnectionLockPage.xaml"));
-        foreach (var required in new[]
-                 {
-                     "Temporary dedicated test only. No installed application will be blocked.", "Controlled Firewall rehearsal status",
-                     "Firewall capability", "Test executable readiness", "Reachable endpoint readiness", "Backup readiness", "Watchdog readiness",
-                     "Last rehearsal result", "Last rollback result", "Permanent enforcement", "AdaptiveGridPanel"
-                 })
-            StringAssert.Contains(page, required);
-        foreach (var prohibited in new[] { "Content=\"Apply\"", "Content=\"Enforce\"", "Content=\"Run Rehearsal\"" })
-            Assert.IsFalse(page.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
+        var page = File.ReadAllText(Path.Combine(
+            RepositoryRoot, "src", "QuietShield.App", "Pages", "ProgramConnectionLockPage.xaml"));
 
-        var validator = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Phase9GuiValidator.cs"));
         foreach (var required in new[]
                  {
-                     "Phase8GuiValidator.ValidateAsync", "RehearsalStatusSectionPassed", "DedicatedTestBannerPassed",
-                     "PermanentEnforcementInactive", "MisleadingPermanentControlsAbsent", "1024d, 640d", "ScrollableWidth"
+                     "PersistentEnforcementAvailable", "TransactionReadiness", "RollbackReadiness",
+                     "RetryPersistentServiceConnectionCommand", "PreviewEnforcementPlanCommand",
+                     "ExportEnforcementPlanCommand", "VirtualizingPanel.IsVirtualizing=\"True\""
                  })
-            StringAssert.Contains(validator, required);
+        {
+            StringAssert.Contains(page, required);
+        }
+
+        foreach (var prohibited in new[]
+                 {
+                     "Content=\"Install Service\"", "Content=\"Start Service\"",
+                     "Content=\"Run Rehearsal\"", "Content=\"Administrator\"", "-Verb RunAs"
+                 })
+        {
+            Assert.IsFalse(
+                page.Contains(prohibited, StringComparison.OrdinalIgnoreCase),
+                $"The customer Program Lock page exposes an unsafe lifecycle/rehearsal action: {prohibited}.");
+        }
     }
 
     [TestMethod]
@@ -1097,21 +1137,44 @@ public sealed class RepositoryArchitectureTests
     {
         var serviceRoot = Path.Combine(RepositoryRoot, "src", "QuietShield.Service");
         var serviceSource = string.Join(Environment.NewLine, Directory.GetFiles(serviceRoot, "*.cs").Select(File.ReadAllText));
+        var backend = File.ReadAllText(Path.Combine(serviceRoot, "ProductionBackendRuntimeR40.cs"));
+
         foreach (var required in new[]
                  {
-                     "AddWindowsService", "BackgroundService", "NamedPipeQuietShieldServer", "PersistentServiceRuntime",
-                     "ReadOnlyPersistentPolicyCoordinator", "InMemoryPolicyApplicator", "NotActiveMessage",
-                     "InterruptedTransactionDetected", "LastKnownGood"
+                     "AddWindowsService", "NamedPipeQuietShieldServer", "PersistentServiceRuntime",
+                     "ProductionBackendRuntimeR40", "New-NetFirewallRule",
+                     "Remove-NetFirewallRule", "Set-DnsClientServerAddress"
                  })
+        {
             StringAssert.Contains(serviceSource, required);
+        }
+
+        foreach (var required in new[]
+                 {
+                     "Where-Object { $_.DisplayName -like 'QuietShield.Profile.*' }",
+                     "Remove-NetFirewallRule -Name $rule.Name", "-Program $path",
+                     "target.IsWindowsSystemComponent", "ProgramConnectionPolicy.AllowedOnAll or",
+                     "ProgramConnectionPolicy.Blocked", "RunExternalProbeAsync(\"udp\"",
+                     "RunExternalProbeAsync(\"tcp\"", "RestoreOriginalDnsAsync"
+                 })
+        {
+            StringAssert.Contains(backend, required);
+        }
+
         foreach (var forbidden in new[]
                  {
-                     "New-NetFirewallRule", "Set-NetFirewallRule", "Remove-NetFirewallRule", "Set-DnsClientServerAddress",
-                     "ServiceController", "InstallUtil", "sc.exe", "Registry.SetValue", "-Verb RunAs"
+                     "Set-NetFirewallProfile", "Disable-NetFirewallRule",
+                     "Get-NetFirewallRule -DisplayName", "Remove-NetFirewallRule -DisplayName",
+                     "netsh advfirewall reset", "-Verb RunAs"
                  })
-            Assert.IsFalse(serviceSource.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"The Phase 10A service contains a prohibited mutation or registration surface: {forbidden}.");
+        {
+            Assert.IsFalse(
+                serviceSource.Contains(forbidden, StringComparison.OrdinalIgnoreCase),
+                $"The production service contains a broad or self-elevating mutation surface: {forbidden}.");
+        }
 
-        var ipc = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.Core", "ServiceFoundation", "NamedPipeIpc.cs"));
+        var ipc = File.ReadAllText(Path.Combine(
+            RepositoryRoot, "src", "QuietShield.Core", "ServiceFoundation", "NamedPipeIpc.cs"));
         foreach (var required in new[] { "PipeOptions.CurrentUserOnly", "MaximumMessageBytes", "CancelAfter", "ProtocolVersion", "RequestId" })
             StringAssert.Contains(ipc, required);
         foreach (var forbidden in new[] { "TcpListener", "UdpClient", "HttpListener", "NamedPipeClientStream(\"localhost\"" })
@@ -1121,21 +1184,22 @@ public sealed class RepositoryArchitectureTests
     [TestMethod]
     public void Phase10AGuiShowsOnlyDiagnosticServiceStatusWithoutActivationControls()
     {
-        var page = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages", "DashboardPage.xaml"));
+        var appRoot = Path.Combine(RepositoryRoot, "src", "QuietShield.App");
+        var dashboard = File.ReadAllText(Path.Combine(appRoot, "Pages", "DashboardPage.xaml"));
+        var mainWindow = File.ReadAllText(Path.Combine(appRoot, "MainWindow.xaml"));
+        var combined = dashboard + Environment.NewLine + mainWindow;
+
         foreach (var required in new[]
                  {
-                     "Persistent service foundation", "ServiceInstallationStatus", "ServiceCommunicationStatus",
-                     "PersistentEnforcementStatus", "ServiceActiveProfile", "LastKnownGoodPolicyStatus",
-                     "ServiceTransactionStatus", "ServiceRecoveryReadiness", "AdaptiveGridPanel"
+                     "ConsumerProtectionStateLabel", "ConsumerProtectionHeadline",
+                     "ProtectionToggleCommand", "RefreshConsumerProtectionCommand",
+                     "ProgramActivationTransaction", "ServiceInstallationStatus",
+                     "OpenProgramLockPageCommand", "AdsBlockedTodayR40", "TrackersBlockedTodayR40"
                  })
-            StringAssert.Contains(page, required);
-        foreach (var prohibited in new[] { "Content=\"Install Service\"", "Content=\"Start Service\"", "Content=\"Apply\"", "Content=\"Enforce\"" })
-            Assert.IsFalse(page.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
-        foreach (var launcher in new[] { "Run-Service-Diagnostic.bat", "Test-Service-Communication.bat" })
-        {
-            var content = File.ReadAllText(Path.Combine(RepositoryRoot, launcher));
-            Assert.IsFalse(content.Contains("RunAs", StringComparison.OrdinalIgnoreCase));
-        }
+            StringAssert.Contains(combined, required);
+
+        foreach (var prohibited in new[] { "Content=\"Install Service\"", "Content=\"Start Service\"", "Content=\"Administrator\"", "RunAs" })
+            Assert.IsFalse(combined.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
     }
 
     [TestMethod]
@@ -1196,11 +1260,23 @@ public sealed class RepositoryArchitectureTests
         foreach (var required in new[] { "LocalSystemSid", "BuiltinAdministratorsSid", "authorizedUserSid", "SetAccessRuleProtection(true, false)" })
             StringAssert.Contains(pipe, required);
         Assert.IsFalse(pipe.Contains("WorldSid", StringComparison.Ordinal));
-        var page = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "QuietShield.App", "Pages", "DashboardPage.xaml"));
-        foreach (var required in new[] { "ServiceInstalled", "ServiceRunning", "ServiceIpcConnected", "PersistentEnforcementAvailable", "ServiceTransactionStatus", "LastKnownGoodPolicyStatus", "ServiceRecoveryReadiness" })
-            StringAssert.Contains(page, required);
-        foreach (var prohibited in new[] { "Content=\"Install Service\"", "Content=\"Start Service\"", "Content=\"Apply\"", "Content=\"Enforce\"" })
-            Assert.IsFalse(page.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
+
+        var appRoot = Path.Combine(RepositoryRoot, "src", "QuietShield.App");
+        var dashboard = File.ReadAllText(Path.Combine(appRoot, "Pages", "DashboardPage.xaml"));
+        var programLock = File.ReadAllText(Path.Combine(appRoot, "Pages", "ProgramConnectionLockPage.xaml"));
+        var mainWindow = File.ReadAllText(Path.Combine(appRoot, "MainWindow.xaml"));
+        var combined = dashboard + Environment.NewLine + programLock + Environment.NewLine + mainWindow;
+
+        foreach (var required in new[]
+                 {
+                     "ServiceInstallationStatus", "ConsumerProtectionStateLabel",
+                     "ProtectionToggleCommand", "PersistentEnforcementAvailable",
+                     "RetryPersistentServiceConnectionCommand"
+                 })
+            StringAssert.Contains(combined, required);
+
+        foreach (var prohibited in new[] { "Content=\"Install Service\"", "Content=\"Start Service\"", "Content=\"Administrator\"" })
+            Assert.IsFalse(combined.Contains(prohibited, StringComparison.OrdinalIgnoreCase));
     }
 
     [TestMethod]

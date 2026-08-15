@@ -16,7 +16,7 @@
                 CornerRadius="9">
             <TextBlock FontSize="11"
                        Foreground="{StaticResource SecondaryTextBrush}"
-                       Text="Simulation only â€” entries stay in memory; Windows DNS and network settings remain unchanged."
+                       Text="Simulation only  -  entries stay in memory; Windows DNS and network settings remain unchanged."
                        TextWrapping="Wrap" />
         </Border>
 

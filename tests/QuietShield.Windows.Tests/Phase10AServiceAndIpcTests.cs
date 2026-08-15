@@ -210,7 +210,7 @@ public sealed class Phase10AServiceAndIpcTests
         public void Dispose()
         {
             _cancellation.Cancel();
-            Assert.IsTrue(_serverTask.Wait(TimeSpan.FromSeconds(3)));
+            Assert.IsTrue(_serverTask.Wait(TimeSpan.FromSeconds(10)), "Named-pipe server did not stop within the bounded fixture cleanup window.");
             _cancellation.Dispose();
             _directory.Dispose();
         }

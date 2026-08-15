@@ -3,9 +3,24 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:QuietShield.App.Controls"
              Focusable="False">
-    <StackPanel>
-        <Border Margin="0,0,0,12"
-                Style="{StaticResource ConceptCardStyle}">
+    <UserControl.Resources>
+        <Style x:Key="DashboardEyebrowTextStyleR364"
+               TargetType="TextBlock"
+               BasedOn="{StaticResource EyebrowTextStyle}">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="LineHeight" Value="16" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>    </UserControl.Resources>
+
+    <Grid MinHeight="0" ClipToBounds="True">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="0" />
+        </Grid.RowDefinitions>
+
+        <Border Style="{StaticResource ConceptCardStyle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -13,498 +28,281 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel>
-                    <TextBlock Style="{StaticResource EyebrowTextStyle}"
-                               Text="OPERATING MODE" />
-                    <TextBlock Margin="0,4,0,0"
-                               FontSize="20"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource InformationBrush}"
-                               Text="{Binding OperatingModeDisplay}" />
-                    <TextBlock Margin="0,3,0,0"
-                               FontSize="10"
-                               Foreground="{StaticResource SecondaryTextBrush}"
-                               Text="{Binding DataSavingPlanSummary}"
-                               TextWrapping="Wrap" />
+                    <TextBlock Style="{StaticResource DashboardEyebrowTextStyleR364}" Text="INTERNET MODE" />
+                    <StackPanel Margin="0,3,0,0" Orientation="Horizontal">
+                        <TextBlock FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource InformationBrush}"
+                                   Text="{Binding OperatingModeDisplay, Mode=OneWay}" />
+                        <TextBlock Margin="12,3,0,0"
+                                   MaxWidth="650"
+                                   FontSize="10.5"
+                                   Foreground="{StaticResource SecondaryTextBrush}"
+                                   Text="{Binding DataSavingPlanSummary, Mode=OneWay}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1"
-                            Margin="18,0,0,0"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                    <Button MinWidth="110"
-                            Margin="0,0,7,0"
-                            Style="{StaticResource SecondaryButtonStyle}"
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button MinWidth="100"
+                            Margin="0,0,6,0"
+                            Style="{StaticResource DataSavingModeButtonStyle}"
                             Command="{Binding UseDataSavingModeCommand}"
                             Content="Data Saving" />
-                    <Button MinWidth="100"
-                            Style="{StaticResource SecondaryButtonStyle}"
+                    <Button MinWidth="90"
+                            Style="{StaticResource WiFiModeButtonStyle}"
                             Command="{Binding UseWiFiModeCommand}"
-                            Content="Wi-Fi Mode" />
+                            Content="Wi-Fi" />
                 </StackPanel>
             </Grid>
         </Border>
-        <!-- Hero matches the concept hierarchy, but the text remains bound to real QuietShield state. -->
-        <Border Style="{StaticResource HeroCardStyle}"
-                AutomationProperties.Name="Current QuietShield protection state">
-            <Grid MinHeight="170">
+
+        <Border Grid.Row="1" Margin="0,8,0,0" Style="{StaticResource HeroCardStyle}">
+            <Grid MinHeight="124">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="92" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="240" />
+                    <ColumnDefinition Width="245" />
                 </Grid.ColumnDefinitions>
 
-                <Grid>
-                    <Ellipse Width="112"
-                             Height="112"
-                             HorizontalAlignment="Center"
-                             VerticalAlignment="Center"
-                             Fill="#4A15493B" />
-                    <Border Width="88"
-                            Height="102"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Background="#B51A7557"
-                            BorderBrush="{StaticResource SuccessBrush}"
-                            BorderThickness="2"
-                            CornerRadius="28">
-                        <TextBlock HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                   FontSize="52"
-                                   Foreground="{StaticResource SuccessBrush}"
-                                   Text="&#xEA18;" />
-                    </Border>
-                </Grid>
+                <Button Width="70"
+                        Height="70"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ProtectionLogoButtonStyle}"
+                        Command="{Binding ProtectionToggleCommand}"
+                        ToolTip="{Binding ProtectionToggleHint, Mode=OneWay}">
+                    <Image RenderOptions.BitmapScalingMode="HighQuality" SnapsToDevicePixels="True" Width="58"
+                           Height="58"
+                           Stretch="Uniform"
+                           Source="/QuietShield.App;component/Assets/QuietShield_UI.png" />
+                </Button>
 
-                <StackPanel Grid.Column="1"
-                            Margin="10,0,15,0"
-                            VerticalAlignment="Center">
-                    <TextBlock FontSize="11"
+                <StackPanel Grid.Column="1" Margin="8,0,12,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource DashboardEyebrowTextStyleR364}" Text="QUIETSHIELD PROTECTION" />
+                        <Border Margin="8,0,0,0"
+                                Padding="6,1"
+                                Background="#5A10233B"
+                                BorderBrush="{StaticResource GlassStrokeSoftBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <TextBlock FontSize="8"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource InformationBrush}"
+                                       Text="{Binding ConsumerProtectionStateLabel, Mode=OneWay}" />
+                        </Border>
+                    </StackPanel>
+
+                    <TextBlock Margin="0,3,0,0"
+                               FontSize="23"
                                FontWeight="SemiBold"
-                               Foreground="{StaticResource MutedTextBrush}"
-                               Text="CURRENT QUIETSHIELD STATE" />
+                               Text="{Binding ConsumerProtectionHeadline, Mode=OneWay}" />
 
-                    <TextBlock Margin="0,6,0,0"
-                               FontSize="29"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource PrimaryTextBrush}"
-                               Text="{Binding ProtectionState}"
-                               TextWrapping="Wrap" />
-
-                    <TextBlock Margin="0,5,0,0"
-                               MaxWidth="560"
-                               FontSize="12"
+                    <TextBlock Margin="0,3,0,0"
+                               MaxWidth="760"
+                               FontSize="10.5"
                                Foreground="{StaticResource SecondaryTextBrush}"
-                               Text="QuietShield reports only validated local status. No blocked-connection, threat, bandwidth, or saved-data totals are invented."
+                               Text="{Binding ConsumerProtectionDetail, Mode=OneWay}"
                                TextWrapping="Wrap" />
 
-                    <WrapPanel Margin="0,13,0,0">
-                        <Border Margin="0,0,8,6" Style="{StaticResource GlassPillStyle}">
-                            <StackPanel Orientation="Horizontal">
-                                <Ellipse Style="{StaticResource DashboardStatusDotStyle}"
-                                         Margin="0,0,6,0"
-                                         Fill="{StaticResource InformationBrush}" />
-                                <TextBlock FontSize="10" Text="{Binding FoundationMode}" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Margin="0,0,8,6" Style="{StaticResource GlassPillStyle}">
-                            <StackPanel Orientation="Horizontal">
-                                <Ellipse Style="{StaticResource DashboardStatusDotStyle}"
-                                         Margin="0,0,6,0"
-                                         Fill="{StaticResource InformationBrush}" />
-                                <TextBlock FontSize="10" Text="{Binding ServiceInstallationStatus}" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Margin="0,0,8,6" Style="{StaticResource GlassPillStyle}">
-                            <StackPanel Orientation="Horizontal">
-                                <Ellipse Style="{StaticResource DashboardStatusDotStyle}"
-                                         Margin="0,0,6,0"
-                                         Fill="{StaticResource WarningBrush}" />
-                                <TextBlock FontSize="10" Text="{Binding DnsSummary}" TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </Border>
+                    <WrapPanel Margin="0,8,0,0">
+                        <Button Margin="0,0,5,4"
+                                Padding="9,4"
+                                Style="{StaticResource CompactActionButtonStyle}"
+                                Command="{Binding OpenProgramLockPageCommand}"
+                                Content="App Lock" />
+                        <Button Margin="0,0,5,4"
+                                Padding="9,4"
+                                Style="{StaticResource CompactActionButtonStyle}"
+                                Command="{Binding OpenDataSavingPageCommand}"
+                                Content="Data Saving"
+                                Visibility="{Binding QuickDataSaving, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Button Margin="0,0,5,4"
+                                Padding="9,4"
+                                Style="{StaticResource CompactActionButtonStyle}"
+                                Command="{Binding OpenPrivateBrowserPageCommand}"
+                                Content="Private Browser"
+                                Visibility="{Binding QuickPrivateBrowser, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Button Margin="0,0,5,4"
+                                Padding="9,4"
+                                Style="{StaticResource CompactActionButtonStyle}"
+                                Command="{Binding OpenFileSafetyPageCommand}"
+                                Content="File Safety"
+                                Visibility="{Binding QuickFileSafety, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Button Margin="0,0,5,4"
+                                Padding="9,4"
+                                Style="{StaticResource CompactActionButtonStyle}"
+                                Command="{Binding OpenActivityPageCommand}"
+                                Content="Activity"
+                                Visibility="{Binding QuickActivity, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Button Margin="0,0,5,4"
+                                Padding="9,4"
+                                Style="{StaticResource CompactActionButtonStyle}"
+                                Command="{Binding OpenDnsProtectionPageCommand}"
+                                Content="DNS"
+                                Visibility="{Binding QuickDns, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Button Margin="0,0,5,4"
+                                Padding="9,4"
+                                Style="{StaticResource CompactActionButtonStyle}"
+                                Command="{Binding OpenSettingsPageCommand}"
+                                Content="Settings"
+                                Visibility="{Binding QuickSettings, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     </WrapPanel>
                 </StackPanel>
 
                 <Border Grid.Column="2"
-                        Padding="13"
+                        Padding="10"
                         Background="#5A10233B"
                         BorderBrush="{StaticResource GlassStrokeSoftBrush}"
                         BorderThickness="1"
-                        CornerRadius="12"
-                        VerticalAlignment="Stretch">
+                        CornerRadius="10">
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="SERVICE STATUS" />
-                        <TextBlock Margin="0,6,0,0"
-                                   FontSize="17"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource InformationBrush}"
-                                   Text="{Binding ServiceRunning}"
-                                   TextWrapping="Wrap" />
-
-                        <TextBlock Margin="0,11,0,0"
-                                   Style="{StaticResource EyebrowTextStyle}"
-                                   Text="COMMUNICATION" />
-                        <TextBlock Margin="0,4,0,0"
-                                   FontSize="11"
-                                   Foreground="{StaticResource SecondaryTextBrush}"
-                                   Text="{Binding ServiceCommunicationStatus}"
-                                   TextWrapping="Wrap" />
-
-                        <Button Margin="0,13,0,0"
+                        <TextBlock Style="{StaticResource DashboardEyebrowTextStyleR364}" Text="MASTER CONTROL" />
+                        <Button Margin="0,6,0,0"
+                                Command="{Binding ProtectionToggleCommand}"
+                                Content="{Binding ProtectionToggleLabel, Mode=OneWay}" />
+                        <Button Margin="0,6,0,0"
                                 Style="{StaticResource SecondaryButtonStyle}"
-                                Command="{Binding RefreshServiceStatusCommand}"
-                                Content="_Refresh status"
-                                AutomationProperties.Name="Refresh Service Status" />
+                                Command="{Binding RefreshConsumerProtectionCommand}"
+                                Content="Refresh" />
+                        <TextBlock Margin="0,6,0,0"
+                                   FontSize="8"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Text="{Binding ConsumerLastAction, Mode=OneWay}"
+                                   TextWrapping="Wrap"
+                                   MaxHeight="34"
+                                   TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </Border>
             </Grid>
         </Border>
 
-        <!-- Four compact concept-style metric cards -->
-        <controls:AdaptiveGridPanel Margin="0,12,0,0"
-                                    ItemMinWidth="185"
+        <controls:AdaptiveGridPanel Grid.Row="2"
+                                    Margin="0,8,0,0"
+                                    ItemMinWidth="165"
                                     MaximumColumns="4"
-                                    Spacing="12">
+                                    Spacing="8">
             <Border Style="{StaticResource MetricCardStyle}">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="DISCOVERED PROGRAMS" />
-                    <TextBlock Margin="0,7,0,0"
-                               Style="{StaticResource MetricValueStyle}"
+                    <TextBlock Style="{StaticResource DashboardEyebrowTextStyleR364}" Text="PROGRAMS" />
+                    <TextBlock Margin="0,3,0,0"
+                               FontSize="22"
+                               FontWeight="SemiBold"
                                Foreground="{StaticResource InformationBrush}"
-                               Text="{Binding ApplicationCount}" />
-                    <TextBlock Margin="0,5,0,0"
-                               FontSize="10"
+                               Text="{Binding ApplicationCount, Mode=OneWay}" />
+                    <TextBlock FontSize="8"
                                Foreground="{StaticResource MutedTextBrush}"
-                               Text="{Binding LastDiscovery}"
-                               TextWrapping="Wrap" />
+                               Text="{Binding LastDiscovery, Mode=OneWay}" />
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource MetricCardStyle}">
+                        <Border Style="{StaticResource MetricCardStyle}"
+                    ToolTip="Counts only verified QuietShield ad-block events; no estimates are shown.">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="NETWORK" />
+                    <TextBlock Style="{StaticResource DashboardEyebrowTextStyleR364}"
+                               Text="ADS BLOCKED" />
                     <TextBlock Margin="0,7,0,0"
                                Style="{StaticResource MetricValueStyle}"
                                Foreground="{StaticResource AccentBrush}"
-                               Text="{Binding NetworkTypeSummary}" />
+                               Text="{Binding AdsBlockedTodayR40}" />
                     <TextBlock Margin="0,5,0,0"
-                               FontSize="10"
+                               FontSize="11.5"
                                Foreground="{StaticResource MutedTextBrush}"
-                               Text="{Binding MeteredStatusSummary}"
+                               Text="{Binding AdsBlockedStatusR40}"
                                TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 
             <Border Style="{StaticResource MetricCardStyle}">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="WARNINGS" />
+                    <TextBlock Style="{StaticResource DashboardEyebrowTextStyleR364}" Text="WARNINGS" />
+                    <TextBlock Margin="0,3,0,0"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource WarningBrush}"
+                               Text="{Binding WarningCount, Mode=OneWay}" />
+                    <TextBlock FontSize="8"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Text="Current local notices" />
+                </StackPanel>
+            </Border>
+
+                        <Border Style="{StaticResource MetricCardStyle}"
+                    ToolTip="Counts only verified QuietShield tracker-block events; no estimates are shown.">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource DashboardEyebrowTextStyleR364}"
+                               Text="TRACKERS BLOCKED" />
                     <TextBlock Margin="0,7,0,0"
                                Style="{StaticResource MetricValueStyle}"
-                               Foreground="{StaticResource WarningBrush}"
-                               Text="{Binding WarningCount}" />
+                               Foreground="{StaticResource InformationBrush}"
+                               Text="{Binding TrackersBlockedTodayR40}" />
                     <TextBlock Margin="0,5,0,0"
-                               FontSize="10"
+                               FontSize="11.5"
                                Foreground="{StaticResource MutedTextBrush}"
-                               Text="Current discovery and compatibility notices"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource MetricCardStyle}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="PERSISTENT ENFORCEMENT" />
-                    <TextBlock Margin="0,7,0,0"
-                               FontSize="17"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource SuccessBrush}"
-                               Text="{Binding PersistentEnforcementAvailable}"
-                               TextWrapping="Wrap" />
-                    <TextBlock Margin="0,5,0,0"
-                               FontSize="10"
-                               Foreground="{StaticResource MutedTextBrush}"
-                               Text="{Binding PersistentEnforcementStatus}"
+                               Text="{Binding TrackersBlockedStatusR40}"
                                TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </controls:AdaptiveGridPanel>
 
-        <!-- Concept middle row -->
-        <Grid Margin="0,12,0,0">
+        <Grid Grid.Row="3" Margin="0,8,0,8" MinHeight="0" ClipToBounds="True">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.18*" />
-                <ColumnDefinition Width="1*" />
-                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="1.07*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0"
-                    Margin="0,0,8,0"
+            <Border Margin="0,0,5,0"
+                    MinHeight="0"
+                    VerticalAlignment="Stretch"
+                    SnapsToDevicePixels="True"
                     Style="{StaticResource ConceptCardStyle}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <Border Width="34"
-                                Height="34"
-                                Margin="0,0,10,0"
-                                Background="{StaticResource AccentSoftBrush}"
-                                CornerRadius="9">
-                            <TextBlock HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                       FontSize="18"
-                                       Foreground="{StaticResource AccentBrush}"
-                                       Text="&#xE839;" />
-                        </Border>
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Program Connection Lock" />
-                            <TextBlock Margin="0,1,0,0"
-                                       FontSize="10"
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       Text="Validated desktop + service workflow" />
-                        </StackPanel>
-                    </StackPanel>
-
-                    <Grid Margin="0,16,0,0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="ACTIVE PROFILE" />
-                        <TextBlock Grid.Column="1"
-                                   Style="{StaticResource BodyTextStyle}"
-                                   Text="{Binding ServiceActiveProfile}"
-                                   TextWrapping="Wrap" />
-
-                        <TextBlock Grid.Row="1"
-                                   Margin="0,10,0,0"
-                                   Style="{StaticResource EyebrowTextStyle}"
-                                   Text="LAST-KNOWN-GOOD" />
-                        <TextBlock Grid.Row="1"
-                                   Grid.Column="1"
-                                   Margin="0,10,0,0"
-                                   Style="{StaticResource BodyTextStyle}"
-                                   Text="{Binding LastKnownGoodPolicyStatus}"
-                                   TextWrapping="Wrap" />
-
-                        <TextBlock Grid.Row="2"
-                                   Margin="0,10,0,0"
-                                   Style="{StaticResource EyebrowTextStyle}"
-                                   Text="TRANSACTION" />
-                        <TextBlock Grid.Row="2"
-                                   Grid.Column="1"
-                                   Margin="0,10,0,0"
-                                   Style="{StaticResource BodyTextStyle}"
-                                   Text="{Binding ServiceTransactionStatus}"
-                                   TextWrapping="Wrap" />
-                    </Grid>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="App Internet Control" />
+                    <TextBlock Margin="0,9,0,0" Style="{StaticResource DashboardEyebrowTextStyleR364}" Text="ACTIVE PROFILE" />
+                    <TextBlock FontSize="10.5" Text="{Binding ProgramActivationActiveProfile, Mode=OneWay}" />
+                    <TextBlock Margin="0,8,0,0" Style="{StaticResource DashboardEyebrowTextStyleR364}" Text="LAST GOOD" />
+                    <TextBlock FontSize="10.5" Text="{Binding ProgramActivationLastKnownGood, Mode=OneWay}" />
+                    <TextBlock Margin="0,8,0,0" Style="{StaticResource DashboardEyebrowTextStyleR364}" Text="TRANSACTION" />
+                    <TextBlock FontSize="10.5" Text="{Binding ProgramActivationTransaction, Mode=OneWay}" />
+                    <Button Margin="0,10,0,0"
+                            HorizontalAlignment="Left"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding OpenProgramLockPageCommand}"
+                            Content="Open App Lock" />
                 </StackPanel>
             </Border>
 
             <Border Grid.Column="1"
-                    Margin="4,0,4,0"
+                    Margin="5,0"
+                    MinHeight="0"
+                    VerticalAlignment="Stretch"
+                    SnapsToDevicePixels="True"
                     Style="{StaticResource ConceptCardStyle}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Margin="0,0,9,0"
-                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                   FontSize="20"
-                                   Foreground="{StaticResource InformationBrush}"
-                                   Text="&#xE9D2;" />
-                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Current Activity" />
-                    </StackPanel>
-
-                    <Border Margin="0,14,0,0"
-                            Padding="10"
-                            Background="#4114283E"
-                            CornerRadius="9">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="LAST DISCOVERY" />
-                            <TextBlock Margin="0,4,0,0"
-                                       FontSize="11"
-                                       Text="{Binding LastDiscovery}"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Margin="0,8,0,0"
-                            Padding="10"
-                            Background="#4114283E"
-                            CornerRadius="9">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="FIREWALL" />
-                            <TextBlock Margin="0,4,0,0"
-                                       FontSize="10"
-                                       Foreground="{StaticResource SecondaryTextBrush}"
-                                       Text="{Binding FirewallSummary}"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Margin="0,8,0,0"
-                            Padding="10"
-                            Background="#4114283E"
-                            CornerRadius="9">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="DNS" />
-                            <TextBlock Margin="0,4,0,0"
-                                       FontSize="10"
-                                       Foreground="{StaticResource SecondaryTextBrush}"
-                                       Text="{Binding DnsSummary}"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Current Activity" />
+                    <TextBlock Margin="0,8,0,0" Style="{StaticResource DashboardEyebrowTextStyleR364}" Text="FIREWALL" />
+                    <TextBlock FontSize="8" Text="{Binding FirewallSummary, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,8,0,0" Style="{StaticResource DashboardEyebrowTextStyleR364}" Text="DNS" />
+                    <TextBlock FontSize="8" Text="{Binding DnsSummary, Mode=OneWay}" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 
             <Border Grid.Column="2"
-                    Margin="8,0,0,0"
+                    Margin="5,0,0,0"
+                    MinHeight="0"
+                    VerticalAlignment="Stretch"
+                    SnapsToDevicePixels="True"
                     Style="{StaticResource ConceptCardStyle}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Margin="0,0,9,0"
-                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                   FontSize="20"
-                                   Foreground="{StaticResource SuccessBrush}"
-                                   Text="&#xEA18;" />
-                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Protection Layers" />
-                    </StackPanel>
-
-                    <Grid Margin="0,15,0,0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="18" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Ellipse Width="8" Height="8" Fill="{StaticResource InformationBrush}" />
-                        <StackPanel Grid.Column="1">
-                            <TextBlock FontSize="11" FontWeight="SemiBold" Text="Program Connection Lock" />
-                            <TextBlock Margin="0,2,0,0"
-                                       FontSize="9"
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       Text="{Binding PersistentEnforcementStatus}"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-
-                        <Ellipse Grid.Row="1"
-                                 Width="8"
-                                 Height="8"
-                                 Margin="0,12,0,0"
-                                 VerticalAlignment="Top"
-                                 Fill="{StaticResource InformationBrush}" />
-                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,9,0,0">
-                            <TextBlock FontSize="11" FontWeight="SemiBold" Text="Windows Firewall" />
-                            <TextBlock Margin="0,2,0,0"
-                                       FontSize="9"
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       Text="{Binding FirewallSummary}"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-
-                        <Ellipse Grid.Row="2"
-                                 Width="8"
-                                 Height="8"
-                                 Margin="0,12,0,0"
-                                 VerticalAlignment="Top"
-                                 Fill="{StaticResource WarningBrush}" />
-                        <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,9,0,0">
-                            <TextBlock FontSize="11" FontWeight="SemiBold" Text="DNS Protection" />
-                            <TextBlock Margin="0,2,0,0"
-                                       FontSize="9"
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       Text="{Binding DnsSummary}"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-
-                        <Ellipse Grid.Row="3"
-                                 Width="8"
-                                 Height="8"
-                                 Margin="0,12,0,0"
-                                 VerticalAlignment="Top"
-                                 Fill="{StaticResource SuccessBrush}" />
-                        <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,9,0,0">
-                            <TextBlock FontSize="11" FontWeight="SemiBold" Text="Recovery readiness" />
-                            <TextBlock Margin="0,2,0,0"
-                                       FontSize="9"
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       Text="{Binding ServiceRecoveryReadiness}"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Grid>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Protection Layers" />
+                    <TextBlock Margin="0,8,0,0" FontSize="10.5" Text="Program Connection Lock" Foreground="{StaticResource InformationBrush}" />
+                    <TextBlock Margin="0,5,0,0" FontSize="10.5" Text="Windows Firewall" Foreground="{StaticResource InformationBrush}" />
+                    <TextBlock Margin="0,5,0,0" FontSize="10.5" Text="DNS activation safety gate" Foreground="{StaticResource WarningBrush}" />
+                    <TextBlock Margin="0,5,0,0" FontSize="10.5" Text="Transaction recovery" Foreground="{StaticResource SuccessBrush}" />
                 </StackPanel>
             </Border>
         </Grid>
-
-        <!-- Compact lower status row, similar visual weight to concept Quick Scan / Update row -->
-        <Grid Margin="0,12,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.25*" />
-                <ColumnDefinition Width="1*" />
-            </Grid.ColumnDefinitions>
-
-            <Border Margin="0,0,6,0"
-                    Style="{StaticResource ConceptCardStyle}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Margin="0,1,12,0"
-                               FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                               FontSize="22"
-                               Foreground="{StaticResource InformationBrush}"
-                               Text="&#xE72C;" />
-
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Read-only discovery" />
-                        <TextBlock Margin="0,3,0,0"
-                                   FontSize="10"
-                                   Foreground="{StaticResource MutedTextBrush}"
-                                   Text="Current Windows state is discovered without changing network or security configuration." />
-                        <TextBlock Margin="0,8,0,0"
-                                   FontSize="11"
-                                   Foreground="{StaticResource SecondaryTextBrush}"
-                                   Text="{Binding TraySummary}"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <Border Grid.Column="1"
-                    Margin="6,0,0,0"
-                    Style="{StaticResource ConceptCardStyle}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Performance-first UI" />
-                    <TextBlock Margin="0,4,0,0"
-                               FontSize="10"
-                               Foreground="{StaticResource MutedTextBrush}"
-                               Text="Dark glass is implemented with lightweight gradients and alpha surfaces." />
-                    <WrapPanel Margin="0,9,0,0">
-                        <Border Margin="0,0,7,5" Style="{StaticResource GlassPillStyle}">
-                            <TextBlock FontSize="9" Foreground="{StaticResource SuccessBrush}" Text="No runtime blur" />
-                        </Border>
-                        <Border Margin="0,0,7,5" Style="{StaticResource GlassPillStyle}">
-                            <TextBlock FontSize="9" Foreground="{StaticResource SuccessBrush}" Text="No animations" />
-                        </Border>
-                        <Border Margin="0,0,7,5" Style="{StaticResource GlassPillStyle}">
-                            <TextBlock FontSize="9" Foreground="{StaticResource SuccessBrush}" Text="No heavy shadows" />
-                        </Border>
-                    </WrapPanel>
-                </StackPanel>
-            </Border>
-        </Grid>
-    </StackPanel>
+    </Grid>
 </UserControl>

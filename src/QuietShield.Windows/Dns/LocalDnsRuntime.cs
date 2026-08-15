@@ -18,7 +18,8 @@ public enum LocalDnsRuntimeState
 public enum LocalDnsBindingMode
 {
     DynamicUnprivilegedDiagnostic,
-    ApprovedTemporaryPort53Rehearsal
+    ApprovedTemporaryPort53Rehearsal,
+    ProductionLoopbackPort53
 }
 
 public sealed record LocalDnsRuntimeOptions(
@@ -84,6 +85,35 @@ public sealed class LocalDnsRuntime : ILocalDnsRuntime
 
     public LocalDnsRuntimeStatus GetStatus()
     {
+        // R4.2.2 listener resilience: preserve the existing GetStatus implementation,
+        // but never report Running when a live listener task has faulted or stopped.
+        lock (_sync)
+        {
+            if (_state == LocalDnsRuntimeState.Running)
+            {
+                var stopping = _shutdown?.IsCancellationRequested == true;
+                var udpFaulted = _udpLoop?.IsFaulted == true;
+                var tcpFaulted = _tcpLoop?.IsFaulted == true;
+                var udpStoppedUnexpectedly = _udpLoop?.IsCompleted == true && !stopping;
+                var tcpStoppedUnexpectedly = _tcpLoop?.IsCompleted == true && !stopping;
+                if (udpFaulted || tcpFaulted || udpStoppedUnexpectedly || tcpStoppedUnexpectedly)
+                {
+                    var failed =
+                        (udpFaulted || udpStoppedUnexpectedly) &&
+                        (tcpFaulted || tcpStoppedUnexpectedly)
+                            ? "UDP/TCP"
+                            : udpFaulted || udpStoppedUnexpectedly
+                                ? "UDP"
+                                : "TCP";
+
+                    return new LocalDnsRuntimeStatus(
+                        LocalDnsRuntimeState.Faulted,
+                        (_tcp?.LocalEndpoint as IPEndPoint)?.Port,
+                        _requests.Count,
+                        "DNS runtime listener task faulted or stopped unexpectedly: " + failed + ".");
+                }
+            }
+        }
         lock (_sync) return new LocalDnsRuntimeStatus(_state, (_tcp?.LocalEndpoint as IPEndPoint)?.Port, _requests.Count, _status);
     }
 
@@ -176,6 +206,12 @@ public sealed class LocalDnsRuntime : ILocalDnsRuntime
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
             catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested) { break; }
             catch (SocketException) when (cancellationToken.IsCancellationRequested) { break; }
+            catch (SocketException exception)
+            {
+                // R4.2.2 listener resilience: a transient Windows socket receive error must not permanently kill the production UDP DNS listener.
+                WriteEvent("UdpListenerSocketError", exception.SocketErrorCode.ToString(), null);
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 
@@ -192,6 +228,12 @@ public sealed class LocalDnsRuntime : ILocalDnsRuntime
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
             catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested) { break; }
             catch (SocketException) when (cancellationToken.IsCancellationRequested) { break; }
+            catch (SocketException exception)
+            {
+                // R4.2.2 listener resilience: keep the TCP accept loop alive across bounded transient socket errors while cancellation is not requested.
+                WriteEvent("TcpListenerSocketError", exception.SocketErrorCode.ToString(), null);
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 
@@ -313,7 +355,8 @@ public sealed class LocalDnsRuntime : ILocalDnsRuntime
             throw new ArgumentException("Diagnostic DNS runtime requires a dynamic or unprivileged port and never permits port 53.", nameof(options));
         if (options.BindingMode == LocalDnsBindingMode.ApprovedTemporaryPort53Rehearsal && options.ListenPort != 53)
             throw new ArgumentException("The approved temporary rehearsal binding mode permits only loopback port 53.", nameof(options));
-        if (options.MaximumQuerySize is < DnsWireProtocol.HeaderLength or > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(options));
+        if (options.BindingMode == LocalDnsBindingMode.ProductionLoopbackPort53 && options.ListenPort != 53)
+            throw new ArgumentException("The production QuietShield DNS binding mode permits only loopback port 53.", nameof(options));        if (options.MaximumQuerySize is < DnsWireProtocol.HeaderLength or > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(options));
         if (options.MaximumConcurrentRequests is < 1 or > 1024) throw new ArgumentOutOfRangeException(nameof(options));
         if (options.QueryTimeout <= TimeSpan.Zero || options.QueryTimeout > TimeSpan.FromMinutes(1)) throw new ArgumentOutOfRangeException(nameof(options));
         return options;

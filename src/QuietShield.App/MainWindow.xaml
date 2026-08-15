@@ -8,6 +8,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         mc:Ignorable="d"
         Title="QuietShield Windows"
+        Icon="/QuietShield.App;component/Assets/QuietShield_UI.png"
         Width="1365"
         Height="820"
         MinWidth="960"
@@ -62,12 +63,7 @@
                             Margin="0,0,8,0"
                             Background="{StaticResource AccentSoftBrush}"
                             CornerRadius="7">
-                        <TextBlock HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                   FontSize="13"
-                                   Foreground="{StaticResource InformationBrush}"
-                                   Text="&#xEA18;" />
+                        <Image RenderOptions.BitmapScalingMode="HighQuality" SnapsToDevicePixels="True" Margin="3" Stretch="Uniform" Source="/QuietShield.App;component/Assets/QuietShield_UI.png" />
                     </Border>
                     <TextBlock VerticalAlignment="Center"
                                FontSize="12"
@@ -126,12 +122,7 @@
                                 BorderThickness="1"
                                 CornerRadius="12"
                                 ToolTip="QuietShield - click to collapse navigation">
-                            <TextBlock HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                       FontSize="24"
-                                       Foreground="{StaticResource InformationBrush}"
-                                       Text="&#xEA18;" />
+                            <Image RenderOptions.BitmapScalingMode="HighQuality" SnapsToDevicePixels="True" Margin="3" Stretch="Uniform" Source="/QuietShield.App;component/Assets/QuietShield_UI.png" />
                         </Border>
 
                         <StackPanel Grid.Column="1"
@@ -176,19 +167,14 @@
                                 BorderThickness="1"
                                 CornerRadius="11"
                                 ToolTip="QuietShield - click to expand navigation">
-                            <TextBlock HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                       FontSize="21"
-                                       Foreground="{StaticResource InformationBrush}"
-                                       Text="&#xEA18;" />
+                            <Image RenderOptions.BitmapScalingMode="HighQuality" SnapsToDevicePixels="True" Margin="3" Stretch="Uniform" Source="/QuietShield.App;component/Assets/QuietShield_UI.png" />
                         </Border>
                     </StackPanel>
 
                     <ListBox x:Name="NavigationList"
                              Grid.Row="1"
                              Margin="5,0"
-                             ItemsSource="{Binding NavigationItems}"
+                             ItemsSource="{Binding VisibleNavigationItems}"
                              SelectedItem="{Binding SelectedPage, Mode=TwoWay}"
                              ItemContainerStyle="{StaticResource CompactNavigationItemStyle}"
                              Background="Transparent"

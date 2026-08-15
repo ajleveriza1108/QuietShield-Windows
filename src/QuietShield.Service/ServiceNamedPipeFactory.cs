@@ -32,6 +32,7 @@ public static class ServiceNamedPipeFactory
             0,
             security,
             HandleInheritability.None,
-            PipeAccessRights.ChangePermissions);
+            // R4.2.9 least-privilege pipe handle: ACL controls access; no extra handle right is requested.
+            (PipeAccessRights)0);
     }
 }

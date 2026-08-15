@@ -50,7 +50,11 @@ namespace QuietShield.Service
                 builder.Services.AddSingleton<IPersistentFirewallBackend, InMemoryPersistentFirewallBackend>();
                 builder.Services.AddSingleton<IServiceProgramPolicyCoordinator, InactiveServiceProgramPolicyCoordinator>();
             }
-            builder.Services.AddSingleton<IQuietShieldServiceRequestHandler, DiagnosticServiceRequestHandler>();
+            builder.Services.AddSingleton<DiagnosticServiceRequestHandler>();
+            builder.Services.AddSingleton<ProductionBackendRuntimeR40>();
+            builder.Services.AddSingleton<IQuietShieldServiceRequestHandler, ProductionCompositeServiceRequestHandlerR40>();
+            if (options.ServiceMode)
+                builder.Services.AddSingleton<IHostedService>(services => services.GetRequiredService<ProductionBackendRuntimeR40>());
             builder.Services.AddSingleton(services => new NamedPipeQuietShieldServer(
                 options.PipeName,
                 services.GetRequiredService<IQuietShieldServiceRequestHandler>(),

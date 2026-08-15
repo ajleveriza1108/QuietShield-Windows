@@ -1,204 +1,180 @@
 <UserControl x:Class="QuietShield.App.Pages.ProgramConnectionLockPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:QuietShield.App.Controls"
              Focusable="False">
-    <StackPanel>
-        <Border Style="{StaticResource InformationBannerStyle}">
-            <StackPanel>
-                <TextBlock FontWeight="SemiBold" Text="Persistent customer workflow: Blocked and Allowed on All" />
-                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="The desktop validates the selected installed application and uses only the secure local service transaction path. It never installs, starts, or elevates the service." />
-                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Wi-Fi, Ethernet, cellular, metered, and unmetered choices remain deterministic simulation only. DNS activation remains blocked." />
-            </StackPanel>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Margin="0,0,0,8"
+                Padding="10,7"
+                Style="{StaticResource InformationBannerStyle}">
+            <TextBlock FontSize="10"
+                       Text="Choose an exact installed user app, then Block or Allow on All through the validated QuietShield service."
+                       TextWrapping="Wrap" />
         </Border>
-        <Border Style="{StaticResource WarningBannerStyle}">
-            <StackPanel>
-                <TextBlock FontWeight="SemiBold" Text="No policy is sent automatically at startup or after recovery. Service and last-known-good state remain authoritative until you explicitly save an eligible policy." />
-                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Enforcement is not active. No Windows Firewall or WFP rule has been changed." />
-                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Temporary dedicated test only. No installed application will be blocked." />
-            </StackPanel>
-        </Border>
-        <Border Style="{StaticResource CardStyle}">
-            <StackPanel>
-                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Desktop protection workflow" />
-                <controls:AdaptiveGridPanel ItemMinWidth="230" MaximumColumns="3" Spacing="10">
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Selected application" /><TextBlock Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding PersistentWorkflowApplication}" ToolTip="{Binding PersistentWorkflowApplication}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Application identity" /><TextBlock Style="{StaticResource TrimmedValueTextStyle}" Text="{Binding PersistentWorkflowIdentity}" ToolTip="{Binding PersistentWorkflowIdentity}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Requested policy" /><TextBlock Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding PersistentWorkflowRequestedPolicy}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Workflow state" /><TextBlock Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding PersistentWorkflowState}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Service installed / running / IPC" /><TextBlock Style="{StaticResource BodyTextStyle}"><Run Text="{Binding ServiceInstalled, Mode=OneWay}" /><Run Text=" / " /><Run Text="{Binding ServiceRunning, Mode=OneWay}" /><Run Text=" / " /><Run Text="{Binding ServiceIpcConnected, Mode=OneWay}" /></TextBlock></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Persistent enforcement available" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding PersistentEnforcementAvailable}" /></StackPanel>
-                </controls:AdaptiveGridPanel>
-                <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding PersistentWorkflowMessage}" ToolTip="{Binding PersistentWorkflowMessage}" />
-                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding PersistentWorkflowFallback}" ToolTip="{Binding PersistentWorkflowFallback}" />
-                <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Foreground="{StaticResource WarningBrush}"><Run Text="Status: " /><Run Text="{Binding PersistentWorkflowIssue, Mode=OneWay}" /></TextBlock>
-                <WrapPanel Margin="0,12,0,0" KeyboardNavigation.TabNavigation="Local">
-                    <Button Margin="0,0,8,8" Command="{Binding SavePersistentProgramPolicyCommand}" Content="_Save protection policy" AutomationProperties.Name="Save protection policy" ToolTip="Validate and request Blocked or Allowed on All through the running QuietShield service." />
-                    <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding RetryPersistentServiceConnectionCommand}" Content="_Retry service connection" AutomationProperties.Name="Retry service connection" ToolTip="Refresh read-only service state and secure local IPC status." />
-                </WrapPanel>
-            </StackPanel>
-        </Border>
-        <Border Style="{StaticResource CardStyle}">
-            <StackPanel>
-                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Controlled Firewall rehearsal status" />
-                <controls:AdaptiveGridPanel ItemMinWidth="235" MaximumColumns="4" Spacing="10">
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Firewall capability" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding FirewallRehearsalCapability}" ToolTip="{Binding FirewallRehearsalCapability}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Test executable readiness" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding RehearsalTestExecutableReadiness}" ToolTip="{Binding RehearsalTestExecutableReadiness}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Reachable endpoint readiness" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding RehearsalEndpointReadiness}" ToolTip="{Binding RehearsalEndpointReadiness}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Backup readiness" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding RehearsalBackupReadiness}" ToolTip="{Binding RehearsalBackupReadiness}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Watchdog readiness" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding RehearsalWatchdogReadiness}" ToolTip="{Binding RehearsalWatchdogReadiness}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Last rehearsal result" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding LastFirewallRehearsalResult}" ToolTip="{Binding LastFirewallRehearsalResult}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Last rollback result" /><TextBlock Style="{StaticResource BodyTextStyle}" Text="{Binding LastFirewallRollbackResult}" ToolTip="{Binding LastFirewallRollbackResult}" /></StackPanel>
-                    <StackPanel Margin="0,6,10,6"><TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Permanent enforcement" /><TextBlock Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding PermanentFirewallEnforcementStatus}" /></StackPanel>
-                </controls:AdaptiveGridPanel>
-            </StackPanel>
-        </Border>
-        <controls:AdaptiveGridPanel ItemMinWidth="235" MaximumColumns="4" Spacing="10">
-            <Border Style="{StaticResource CardStyle}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Transaction readiness" />
-                    <TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding TransactionReadiness}" ToolTip="{Binding TransactionReadiness}" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource CardStyle}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Selected profile" />
-                    <TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding SelectedTransactionProfile}" ToolTip="{Binding SelectedTransactionProfile}" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource CardStyle}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Policy support" />
-                    <TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}">
-                        <Run Text="{Binding EnforceablePolicyCount, Mode=OneWay}" /><Run Text=" enforceable / " /><Run Text="{Binding UnsupportedPolicyCount, Mode=OneWay}" /><Run Text=" require runtime management" />
-                    </TextBlock>
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource CardStyle}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource ExplanatoryTextStyle}" Text="Proposed operations" />
-                    <TextBlock Margin="0,5,0,0" Style="{StaticResource BodyTextStyle}" FontWeight="SemiBold" Text="{Binding ProposedRuleOperationCount}" />
-                </StackPanel>
-            </Border>
-        </controls:AdaptiveGridPanel>
-        <controls:AdaptiveGridPanel ItemMinWidth="340" MaximumColumns="2" Spacing="14">
-            <Border Style="{StaticResource CardStyle}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Searchable application inventory" />
-                    <Label Margin="0,9,0,3" Padding="0" Foreground="{StaticResource SecondaryTextBrush}" Content="_Search applications" Target="{Binding ElementName=ApplicationSearchBox}" />
-                    <TextBox x:Name="ApplicationSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Search installed applications" />
-                    <Grid Margin="0,10,0,0">
-                        <ListView x:Name="ApplicationInventoryList" MinHeight="250" MaxHeight="410"
-                                  ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}"
-                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                                  VirtualizingPanel.ScrollUnit="Pixel" IsTabStop="True"
-                                  AutomationProperties.Name="Read-only virtualized application inventory">
-                            <ListView.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListView.ItemsPanel>
-                            <ListView.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid MinHeight="72">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                        <Grid VerticalAlignment="Center">
-                                            <TextBlock HorizontalAlignment="Center" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="20" Foreground="{StaticResource AccentBrush}" Text="&#xE7B8;" ToolTip="No extractable icon was available" />
-                                            <Image Width="28" Height="28" Source="{Binding IconImage}" ToolTip="{Binding IconSourcePath}" />
-                                        </Grid>
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontWeight="SemiBold" Text="{Binding DisplayName}" ToolTip="{Binding DisplayName}" />
-                                            <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding Publisher}" ToolTip="{Binding Publisher}" />
-                                            <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Text="{Binding PathValue}" ToolTip="{Binding PathValue}" />
-                                            <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Text="{Binding ApplicationTypeLabel}" ToolTip="{Binding PathStatus}" />
-                                            <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Text="{Binding PolicyLabel}" ToolTip="{Binding PolicyLabel}" />
-                                        </StackPanel>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Margin="18" Style="{StaticResource ExplanatoryTextStyle}" Text="No matching applications were found. Discovery remains read-only." Visibility="{Binding Applications, Converter={StaticResource EmptyCollectionToVisibilityConverter}}" IsHitTestVisible="False" />
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.3*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="0.9*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource ConceptCardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Applications" />
+                        <CheckBox Grid.Column="1"
+                                  IsChecked="{Binding ShowSystemAndUnsupportedApplications}"
+                                  Content="Show Windows system and unsupported apps"
+                                  ToolTip="Protected Windows system components remain non-blockable. Unsupported entries are shown for inspection only." />
                     </Grid>
+
+                    <TextBox Grid.Row="1"
+                             Margin="0,8,0,8"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Search applications" />
+
+                    <ListView Grid.Row="2"
+                              ItemsSource="{Binding Applications}"
+                              SelectedItem="{Binding SelectedApplication}"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="2,2" MinHeight="44">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="34" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid VerticalAlignment="Center">
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                   FontSize="17"
+                                                   Foreground="{StaticResource AccentBrush}"
+                                                   Text="&#xE7B8;" />
+                                        <Image Width="24" Height="24" Source="{Binding IconImage}" />
+                                    </Grid>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   Text="{Binding DisplayName}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock FontSize="9"
+                                                   Foreground="{StaticResource SecondaryTextBrush}"
+                                                   Text="{Binding Publisher}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock FontSize="9"
+                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                   Text="{Binding PathStatus}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource ConceptCardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Internet Access" />
+
+                    <TextBlock Margin="0,9,0,2" Style="{StaticResource EyebrowTextStyle}" Text="APP" />
+                    <TextBlock FontSize="11"
+                               FontWeight="SemiBold"
+                               Text="{Binding PersistentWorkflowApplication, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding PersistentWorkflowApplication, Mode=OneWay}" />
+
+                    <TextBlock Margin="0,9,0,2" Style="{StaticResource EyebrowTextStyle}" Text="RULE" />
+                    <ComboBox ItemsSource="{Binding PersistentProgramPolicies}"
+                              SelectedItem="{Binding SelectedPolicy}" />
+                    <TextBlock Margin="0,4,0,0"
+                               FontSize="9"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Text="Blocked and AllowedOnAll are the real persistent test choices." />
+
+                    <Button Margin="0,10,0,0"
+                            Click="ApplyAppRuleButton_Click"
+                            Content="Apply app rule" />
+
+                    <TextBlock Margin="0,8,0,0"
+                               FontSize="10"
+                               Text="{Binding PersistentWorkflowMessage, Mode=OneWay}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Margin="0,4,0,0"
+                               FontSize="9"
+                               Foreground="{StaticResource WarningBrush}"
+                               Text="{Binding PersistentWorkflowIssue, Mode=OneWay}"
+                               TextWrapping="Wrap" />
+
+                    <Separator Margin="0,10,0,8" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="SERVICE" />
+                            <TextBlock FontSize="10">
+                                <Run Text="{Binding ServiceRunning, Mode=OneWay}" />
+                                <Run Text=" / " />
+                                <Run Text="{Binding ServiceIpcConnected, Mode=OneWay}" />
+                            </TextBlock>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="ENFORCEMENT" />
+                            <TextBlock FontSize="10"
+                                       Foreground="{StaticResource SuccessBrush}"
+                                       Text="{Binding PersistentEnforcementAvailable, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Button Margin="0,8,0,0"
+                            HorizontalAlignment="Left"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding RetryPersistentServiceConnectionCommand}"
+                            Content="Retry service" />
+
+                    <Expander Margin="0,10,0,0" Header="Advanced details">
+                        <StackPanel Margin="0,7,0,0">
+                            <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="WORKFLOW" />
+                            <TextBlock FontSize="9" Text="{Binding PersistentWorkflowState, Mode=OneWay}" />
+                            <TextBlock Margin="0,6,0,0" Style="{StaticResource EyebrowTextStyle}" Text="TRANSACTION" />
+                            <TextBlock FontSize="9" Text="{Binding TransactionReadiness, Mode=OneWay}" />
+                            <TextBlock Margin="0,6,0,0" Style="{StaticResource EyebrowTextStyle}" Text="ROLLBACK" />
+                            <TextBlock FontSize="9" Text="{Binding RollbackReadiness, Mode=OneWay}" TextWrapping="Wrap" />
+                            <WrapPanel Margin="0,8,0,0">
+                                <Button Margin="0,0,6,0"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding PreviewEnforcementPlanCommand}"
+                                        Content="Preview" />
+                                <Button Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding ExportEnforcementPlanCommand}"
+                                        Content="Export" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Expander>
                 </StackPanel>
             </Border>
-            <StackPanel>
-                <Border Style="{StaticResource CardStyle}">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Deterministic policy simulator" />
-                        <TextBlock Margin="0,10,0,4" Style="{StaticResource ExplanatoryTextStyle}" Text="Active profile" />
-                        <ComboBox ItemsSource="{Binding ConnectionProfiles}" SelectedItem="{Binding SelectedConnectionProfile}" DisplayMemberPath="Name" AutomationProperties.Name="Active simulated protection profile" />
-                        <TextBlock Margin="0,10,0,4" Style="{StaticResource ExplanatoryTextStyle}" Text="Connection type" />
-                        <ComboBox ItemsSource="{Binding ConnectionTypes}" SelectedItem="{Binding SelectedConnectionType}" AutomationProperties.Name="Connection type" />
-                        <TextBlock Margin="0,10,0,4" Style="{StaticResource ExplanatoryTextStyle}" Text="Program policy override" />
-                        <ComboBox ItemsSource="{Binding ProgramPolicies}" SelectedItem="{Binding SelectedPolicy}" AutomationProperties.Name="Program connection policy" />
-                        <TextBlock Margin="0,10,0,4" Style="{StaticResource ExplanatoryTextStyle}" Text="Temporary allowance" />
-                        <ComboBox ItemsSource="{Binding TemporaryAllowanceOptions}" SelectedItem="{Binding SelectedTemporaryAllowance}" AutomationProperties.Name="Temporary allowance duration" />
-                        <TextBlock Margin="0,10,0,4" Style="{StaticResource ExplanatoryTextStyle}" Text="Compatibility Guard" />
-                        <ComboBox ItemsSource="{Binding CompatibilityOptions}" SelectedItem="{Binding SelectedCompatibilityOption}" AutomationProperties.Name="Compatibility exclusion preview" />
-                        <CheckBox Margin="0,9,0,0" IsChecked="{Binding IsParentProtectedSimulation}" Content="Require _parent approval in this simulation" AutomationProperties.Name="Require parent approval simulation" />
-                        <TextBlock Margin="0,14,0,0" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource AccentBrush}" Text="{Binding SimulationDecision}" ToolTip="{Binding SimulationDecision}" />
-                        <TextBlock Margin="0,6,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding SimulationReason}" ToolTip="{Binding SimulationReason}" />
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-        </controls:AdaptiveGridPanel>
-        <Border Margin="0,14,0,0" Style="{StaticResource CardStyle}">
-            <StackPanel>
-                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Decision evidence and future enforcement plan" />
-                <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding IdentitySummary}" ToolTip="{Binding IdentitySummary}" />
-                <TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding DecisionEvidence}" ToolTip="{Binding DecisionEvidence}" />
-                <TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding PlannerSummary}" ToolTip="{Binding PlannerSummary}" />
-                <TextBlock Margin="0,9,0,0" Style="{StaticResource ExplanatoryTextStyle}" Foreground="{StaticResource WarningBrush}" Text="There is intentionally no Apply, Activate, or Enforce control. Every plan has CanExecute=false." />
-            </StackPanel>
-        </Border>
-        <Border Margin="0,14,0,0" Style="{StaticResource CardStyle}">
-            <StackPanel>
-                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Transaction safety and recovery readiness" />
-                <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding BackupReadiness}" ToolTip="{Binding BackupReadiness}" />
-                <TextBlock Margin="0,6,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding RollbackReadiness}" ToolTip="{Binding RollbackReadiness}" />
-                <TextBlock Margin="0,6,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding EmergencyRecoveryReadiness}" ToolTip="{Binding EmergencyRecoveryReadiness}" />
-                <WrapPanel Margin="0,12,0,0" KeyboardNavigation.TabNavigation="Local">
-                    <Button Margin="0,0,8,8" Command="{Binding PreviewEnforcementPlanCommand}" Content="_Preview Enforcement Plan" ToolTip="Generate a deterministic, read-only transaction plan." AutomationProperties.Name="Preview Enforcement Plan" />
-                    <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ExportEnforcementPlanCommand}" Content="_Export Plan" ToolTip="Export the current non-executable plan as JSON." AutomationProperties.Name="Export Plan" />
-                </WrapPanel>
-                <TextBlock Margin="0,3,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding TransactionPreviewStatus}" ToolTip="{Binding TransactionPreviewStatus}" />
-            </StackPanel>
-        </Border>
-        <Border Margin="0,14,0,0" Style="{StaticResource CardStyle}">
-            <StackPanel>
-                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Read-only transaction-plan viewer" />
-                <ListView x:Name="ProgramLockTransactionPlanList" Margin="0,10,0,0" MinHeight="170" MaxHeight="360"
-                          ItemsSource="{Binding ProgramLockPlanOperations}"
-                          ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                          VirtualizingPanel.ScrollUnit="Pixel" IsTabStop="True"
-                          KeyboardNavigation.DirectionalNavigation="Contained"
-                          AutomationProperties.Name="Read-only Program Lock transaction plan">
-                    <ListView.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListView.ItemsPanel>
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <Grid MinHeight="88" Margin="2,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="2*" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Margin="0,0,12,0">
-                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontWeight="SemiBold" Text="{Binding Application}" ToolTip="{Binding Application}" />
-                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding CurrentSimulatedPolicy}" ToolTip="{Binding CurrentSimulatedPolicy}" />
-                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Text="{Binding FutureRuleId}" ToolTip="{Binding FutureRuleId}" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="0,0,12,0">
-                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontWeight="SemiBold" Text="{Binding ProposedOperation}" ToolTip="{Binding ProposedOperation}" />
-                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" Text="{Binding Enforceability}" ToolTip="{Binding Enforceability}" />
-                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Text="{Binding RollbackAction}" ToolTip="{Binding RollbackAction}" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" Text="{Binding Reason}" ToolTip="{Binding Reason}" />
-                                    <TextBlock Style="{StaticResource TrimmedValueTextStyle}" FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" Text="{Binding RequiredPrivilege}" ToolTip="{Binding RequiredPrivilege}" />
-                                </StackPanel>
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </StackPanel>
-        </Border>
-    </StackPanel>
+        </Grid>
+    </Grid>
 </UserControl>

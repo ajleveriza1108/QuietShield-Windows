@@ -25,6 +25,13 @@ public enum ServiceMessageKind
     GetTransactionStatus,
     RequestRollback,
     GetHealth,
+    GetBackendStatus,
+    GetProtectionStatistics,
+    RunBackendSelfTest,
+    RequestDnsShieldActivation,
+    RequestOperatingModeEnforcement,
+    ReportPrivateBrowserBlockEvent,
+    RequestFileSafetyScan,
     Ping
 }
 
@@ -102,6 +109,87 @@ public sealed record PolicyPreviewResponse(
     string Reason,
     IReadOnlyList<string> VisibleSafetyExemptions);
 
+public sealed record BackendStatusSnapshotR40(
+    bool DnsRuntimeRunning,
+    bool DnsSystemActive,
+    bool DnsDesiredEnabled,
+    bool DataSavingEnforcementActive,
+    int DataSavingRuleCount,
+    bool ProgramConnectionLockAvailable,
+    bool PrivateBrowserFilteringAvailable,
+    bool FileSafetyAvailable,
+    bool ParentChildBackendAvailable,
+    bool ScheduleBackendAvailable,
+    bool TelemetryBackendAvailable,
+    bool LicensingBackendAvailable,
+    bool UpdaterBackendAvailable,
+    bool TrayBackendAvailable,
+    string OverallStatus,
+    string Detail);
+
+public sealed record ProtectionStatisticsSnapshotR40(
+    string DateLocal,
+    long AdsBlocked,
+    long TrackersBlocked,
+    long ThreatsBlocked,
+    long TotalBlocked,
+    DateTimeOffset UpdatedAtUtc,
+    string Status);
+
+public sealed record BackendSelfTestCheckR40(
+    string Name,
+    bool Passed,
+    string Detail);
+
+public sealed record BackendSelfTestResultR40(
+    bool Passed,
+    IReadOnlyList<BackendSelfTestCheckR40> Checks,
+    string Summary,
+    DateTimeOffset CompletedAtUtc);
+
+public sealed record DnsShieldActivationRequestR40(
+    bool Enable,
+    bool ExplicitUserApproval);
+
+public sealed record DnsShieldActivationResponseR40(
+    bool Succeeded,
+    bool SystemActive,
+    bool ExternalProbeGatePassed,
+    string Message);
+
+public sealed record OperatingModeProgramTargetR40(
+    string StableApplicationIdentity,
+    string DisplayName,
+    string? ExecutablePath,
+    bool IsWindowsSystemComponent,
+    bool Selected);
+
+public sealed record OperatingModeEnforcementRequestR40(
+    string Mode,
+    IReadOnlyList<OperatingModeProgramTargetR40> Programs);
+
+public sealed record OperatingModeEnforcementResponseR40(
+    bool Succeeded,
+    string ActiveMode,
+    int ActiveRuleCount,
+    string Message);
+
+public sealed record PrivateBrowserBlockEventR40(
+    string Host,
+    string Category,
+    DateTimeOffset OccurredAtUtc);
+
+public sealed record FileSafetyScanRequestR40(
+    string Path,
+    bool RunDefenderForHighRisk);
+
+public sealed record FileSafetyScanResponseR40(
+    bool Succeeded,
+    string Risk,
+    string Sha256,
+    bool DefenderScanStarted,
+    int? DefenderExitCode,
+    string Summary);
 public interface IQuietShieldServiceRequestHandler
 {
     Task<ServiceResponse> HandleAsync(ServiceRequest request, CancellationToken cancellationToken);

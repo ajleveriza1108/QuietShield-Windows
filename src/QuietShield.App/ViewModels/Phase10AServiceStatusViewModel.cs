@@ -47,7 +47,7 @@ public sealed partial class MainViewModel
     {
         try
         {
-            var response = await _serviceClient.SendAsync(
+            var response = await CreateProductionServiceClientR3543().SendAsync(
                 ServiceMessageKind.GetServiceStatus,
                 null,
                 cancellationToken).ConfigureAwait(true);

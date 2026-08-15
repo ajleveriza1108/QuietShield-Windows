@@ -117,9 +117,11 @@ public sealed class NamedPipeQuietShieldServer
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            await using var server = _serverFactory();
             try
             {
+                // R4.2.9 pipe factory creation is guarded. A transient pipe-creation
+                // IOException must not fault ServiceIpcWorker and stop the Windows host.
+                await using var server = _serverFactory();
                 await server.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
                 await ProcessConnectionAsync(server, cancellationToken).ConfigureAwait(false);
             }
@@ -134,7 +136,10 @@ public sealed class NamedPipeQuietShieldServer
             }
             catch (Exception exception) when (exception is IOException or InvalidDataException or JsonException)
             {
-                // The next loop creates a clean local endpoint. Message content is deliberately not logged.
+                // This also covers transient IOException from _serverFactory(). The next
+                // loop creates a clean local endpoint. Message content is deliberately not logged.
+                try { await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false); }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
             }
         }
     }

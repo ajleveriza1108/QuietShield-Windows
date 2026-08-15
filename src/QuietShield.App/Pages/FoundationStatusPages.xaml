@@ -2,50 +2,227 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Focusable="False">
-    <Grid>
-        <StackPanel Visibility="{Binding IsMeteredDataWatch, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Metered and Cellular Data Watch" /><TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding NetworkSummary}" /><TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Traffic accounting is not implemented, and no network cost setting is changed." /></StackPanel></Border>
+    <Grid MinHeight="0">
+        <StackPanel Visibility="{Binding IsProtectionOverview, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.15*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource HeroCardStyle}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="76" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Button Width="62"
+                                Height="62"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource ProtectionLogoButtonStyle}"
+                                Command="{Binding ProtectionToggleCommand}">
+                            <Image RenderOptions.BitmapScalingMode="HighQuality" SnapsToDevicePixels="True" Width="52"
+                                   Height="52"
+                                   Source="/QuietShield.App;component/Assets/QuietShield_UI.png"
+                                   Stretch="Uniform" />
+                        </Button>
+
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource EyebrowTextStyle}" Text="MASTER PROTECTION" />
+                            <TextBlock Margin="0,4,0,0"
+                                       Style="{StaticResource SectionTitleStyle}"
+                                       Text="{Binding ConsumerProtectionHeadline, Mode=OneWay}" />
+                            <TextBlock Margin="0,5,0,0"
+                                       Style="{StaticResource BodyTextStyle}"
+                                       Text="{Binding ConsumerProtectionDetail, Mode=OneWay}"
+                                       TextWrapping="Wrap" />
+                            <WrapPanel Margin="0,10,0,0">
+                                <Button Margin="0,0,7,0"
+                                        Command="{Binding ProtectionToggleCommand}"
+                                        Content="{Binding ProtectionToggleLabel, Mode=OneWay}" />
+                                <Button Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding RefreshConsumerProtectionCommand}"
+                                        Content="Refresh" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource ConceptCardStyle}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Protection Boundaries" />
+                        <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="Program Connection Lock uses the validated service-backed path when available." TextWrapping="Wrap" />
+                        <TextBlock Margin="0,6,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Windows DNS adapter activation and machine-wide Data Saving Firewall enforcement remain safety-gated." TextWrapping="Wrap" />
+                        <Button Margin="0,10,0,0"
+                                HorizontalAlignment="Left"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Command="{Binding OpenProgramLockPageCommand}"
+                                Content="Open App Lock" />
+                    </StackPanel>
+                </Border>
+            </Grid>
         </StackPanel>
 
         <StackPanel Visibility="{Binding IsAggressiveProgramWatch, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <Border Style="{StaticResource DisabledBannerStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Aggressive Program Watch is not active" /><TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="No process monitoring, packet capture, or traffic inspection occurs in this phase." /></StackPanel></Border>
-        </StackPanel>
-
-        <StackPanel Visibility="{Binding IsActivity, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Discovery activity" /><TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding ActivitySummary}" /><TextBlock Margin="0,9,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="No blocked-ad, tracker, threat, bandwidth, or data-saved statistics are fabricated." /></StackPanel></Border>
-        </StackPanel>
-
-        <StackPanel Visibility="{Binding IsLicensing, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <Border Style="{StaticResource CardStyle}"><StackPanel><TextBlock Style="{StaticResource SectionTitleStyle}" Text="Licensing foundation" /><TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding LicenseSummary}" /><TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="No purchase, sign-in, licence-key entry, or online activation control is implemented in this phase." /></StackPanel></Border>
-        </StackPanel>
-
-        <StackPanel Visibility="{Binding IsSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <Border Style="{StaticResource CardStyle}">
+            <Border Style="{StaticResource ConceptCardStyle}">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Read-only discovery controls" />
-                    <WrapPanel Margin="0,11,0,0" KeyboardNavigation.TabNavigation="Local">
-                        <Button Margin="0,0,8,8" Command="{Binding RefreshCommand}" Content="_Refresh discovery" />
-                        <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CancelCommand}" Content="_Cancel" />
-                        <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ClearCacheCommand}" Content="_Clear safe cache" />
-                        <Button Margin="0,0,8,8" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ExportDiagnosticsCommand}" Content="_Export privacy-safe diagnostic" />
-                    </WrapPanel>
-                    <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding LastActionStatus}" />
-                    <TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Export occurs only when requested and excludes usernames, addresses, MACs, SSIDs, credentials, tokens, and command lines." />
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Program Watch" />
+                    <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="Program observation and compatibility classification backends are available. Continuous background watch stays off during this test cycle to keep resource use low." TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </StackPanel>
 
-        <StackPanel Visibility="{Binding IsGenericPage, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <Border Style="{StaticResource CardStyle}">
+        <StackPanel Visibility="{Binding IsActivity, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource ConceptCardStyle}">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Planned feature" />
-                    <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding SelectedPage.Description}" />
-                    <Border Margin="0,12,0,0" Style="{StaticResource DisabledBannerStyle}">
-                        <StackPanel>
-                            <TextBlock FontWeight="SemiBold" Foreground="{StaticResource WarningBrush}" Text="Not yet active" />
-                            <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Implementation requires a separately reviewed phase with explicit safety, validation, rollback, and recovery design. No unavailable control is presented as active." />
-                        </StackPanel>
-                    </Border>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Activity &amp; Statistics" />
+                    <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding ActivitySummary, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,6,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="QuietShield reports measured/local status only. Blocked-request, tracker and saved-data totals are not invented." TextWrapping="Wrap" />
+                    <Button Margin="0,12,0,0" HorizontalAlignment="Left" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding RefreshCommand}" Content="Refresh activity" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsParentChildControls, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource ConceptCardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Family Safety" />
+                    <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="Parent/child policy, PIN hashing and tamper-evident policy backends are ready. Windows child-session enforcement is not yet exposed as a production control." TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsPrivateBrowser, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource ConceptCardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="68" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Image Width="54"
+                           Height="54"
+                           Stretch="Uniform"
+                           Source="/QuietShield.App;component/Assets/QuietShield_PB.png" />
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Private Browser" />
+                        <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="Open the standalone WebView2 Private Browser test runtime. Page-only tools remain context-aware." TextWrapping="Wrap" />
+                        <Button Margin="0,12,0,0" HorizontalAlignment="Left" Command="{Binding LaunchPrivateBrowserCommand}" Content="Open Private Browser" />
+                        <TextBlock Margin="0,8,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding PrivateBrowserLaunchStatus, Mode=OneWay}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsFileSafety, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource ConceptCardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="File Safety" />
+                    <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="The exact-file risk scanner and Microsoft Defender integration are available in the backend. File Safety is an additional risk signal and does not guarantee that a file is safe." TextWrapping="Wrap" />
+                    <TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Final file-picker and action workflow remains an integration step." TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsLicensing, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource ConceptCardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Licensing" />
+                    <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding LicenseSummary, Mode=OneWay}" />
+                    <TextBlock Margin="0,6,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Signed-license foundations are available. Production payment/account activation remains intentionally disabled while testing." TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsUpdates, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource ConceptCardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Updates" />
+                    <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="Signed manifest verification and HTTPS package staging are available. Automatic installation remains disabled while the app is under test." TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="12" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.08*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource ConceptCardStyle}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Protection &amp; Quick Actions" />
+                        <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="The QuietShield logo and Turn On/Off button control the installed Protection Service. Choose which optional shortcuts appear on Dashboard." TextWrapping="Wrap" />
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Margin="0,0,7,7" Command="{Binding ProtectionToggleCommand}" Content="{Binding ProtectionToggleLabel, Mode=OneWay}" />
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenProgramLockPageCommand}" Content="App Lock" />
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenDataSavingPageCommand}" Content="Data Saving" />
+                        </WrapPanel>
+                        <WrapPanel Margin="0,5,0,0">
+                            <CheckBox Margin="0,0,12,7" IsChecked="{Binding QuickDataSaving, Mode=TwoWay}" Content="Data Saving" />
+                            <CheckBox Margin="0,0,12,7" IsChecked="{Binding QuickPrivateBrowser, Mode=TwoWay}" Content="Private Browser" />
+                            <CheckBox Margin="0,0,12,7" IsChecked="{Binding QuickFileSafety, Mode=TwoWay}" Content="File Safety" />
+                            <CheckBox Margin="0,0,12,7" IsChecked="{Binding QuickActivity, Mode=TwoWay}" Content="Activity" />
+                            <CheckBox Margin="0,0,12,7" IsChecked="{Binding QuickDns, Mode=TwoWay}" Content="DNS" />
+                            <CheckBox Margin="0,0,12,7" IsChecked="{Binding QuickSettings, Mode=TwoWay}" Content="Settings" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource ConceptCardStyle}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Privacy, Family &amp; Safety" />
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenPrivateBrowserPageCommand}" Content="Private Browser" />
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenFileSafetyPageCommand}" Content="File Safety" />
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenParentControlsPageCommand}" Content="Family Safety" />
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenDnsProtectionPageCommand}" Content="DNS Protection" />
+                        </WrapPanel>
+                        <TextBlock Margin="0,6,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="Advanced enforcement remains behind the existing safety gates until its Windows activation path is validated." TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="2" Style="{StaticResource ConceptCardStyle}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Backup &amp; Restore" />
+                        <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="Back up consumer quick-action preferences and operating-mode preference. Licensing, credentials, service state and Firewall rules are deliberately excluded." TextWrapping="Wrap" />
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CreateConsumerBackupCommand}" Content="Create backup file" />
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding RestoreConsumerBackupCommand}" Content="Restore backup" />
+                        </WrapPanel>
+                        <TextBlock Margin="0,5,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding ConsumerLastAction, Mode=OneWay}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource ConceptCardStyle}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Diagnostics &amp; Advanced Tools" />
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Margin="0,0,7,7" Command="{Binding RefreshCommand}" Content="Refresh" />
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ClearCacheCommand}" Content="Clear safe cache" />
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ExportDiagnosticsCommand}" Content="Export diagnostic" />
+                            <Button Margin="0,0,7,7" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ToggleAdvancedNavigationCommand}" Content="{Binding AdvancedNavigationButtonText, Mode=OneWay}" />
+                        </WrapPanel>
+                        <TextBlock Margin="0,7,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="{Binding LastActionStatus, Mode=OneWay}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding IsGenericPage, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource ConceptCardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="{Binding SelectedPage.Title, Mode=OneWay}" />
+                    <TextBlock Margin="0,7,0,0" Style="{StaticResource BodyTextStyle}" Text="{Binding SelectedPage.Description, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,8,0,0" Style="{StaticResource ExplanatoryTextStyle}" Text="This advanced page is available for testing and diagnostics. Everyday tools remain in the simplified navigation." TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </StackPanel>

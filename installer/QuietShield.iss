@@ -51,6 +51,12 @@ SignedUninstaller=no
 Name: "{commonappdata}\QuietShield\Service"; Permissions: system-full admins-full
 
 [Files]
+; R4.2.22 pre-copy service quiesce bootstrap
+Source: "{#SourceRoot}\installer\Prepare-QuietShieldProductionUpgrade.ps1"; Flags: dontcopy noencryption
+Source: "{#SourceRoot}\installer\QuietShield.Installer.Common.ps1"; Flags: dontcopy noencryption
+Source: "{#SourceRoot}\installer\QuietShield.Script.Common.ps1"; Flags: dontcopy noencryption
+Source: "{#SourceRoot}\installer\ServiceActivation.Script.Common.ps1"; Flags: dontcopy noencryption
+
 Source: "{#SourceRoot}\app\*"; DestDir: "{app}\App\{#AppVersion}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.dbg,*.xml"
 Source: "{#SourceRoot}\service\*"; DestDir: "{app}\Service\{#AppVersion}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.dbg,appsettings.Development.json"
 Source: "{#SourceRoot}\installer\*"; DestDir: "{app}\Installer"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -69,6 +75,29 @@ begin
   Result := '"' + Value + '"';
 end;
 
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Parameters: String;
+  ResultCode: Integer;
+begin
+  Result := '';
+  NeedsRestart := False;
+  ExtractTemporaryFile('Prepare-QuietShieldProductionUpgrade.ps1');
+  ExtractTemporaryFile('QuietShield.Installer.Common.ps1');
+  ExtractTemporaryFile('QuietShield.Script.Common.ps1');
+  ExtractTemporaryFile('ServiceActivation.Script.Common.ps1');
+  Parameters := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ' +
+    QuoteArgument(ExpandConstant('{tmp}\Prepare-QuietShieldProductionUpgrade.ps1')) +
+    ' -ApprovedInstallerServiceQuiesce -Version ' + QuoteArgument('{#AppVersion}') +
+    ' -ProductRoot ' + QuoteArgument(ExpandConstant('{app}')) +
+    ' -StateRoot ' + QuoteArgument(ExpandConstant('{commonappdata}\QuietShield\Service'));
+  if not Exec(InstallerPowerShellPath(), Parameters, '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) then begin
+    Result := 'QuietShield could not start its owned-service pre-copy quiesce helper.';
+    exit;
+  end;
+  if ResultCode <> 0 then
+    Result := Format('QuietShield could not safely stop the existing owned service before file replacement (exit code %d).', [ResultCode]);
+end;
 procedure RunProductionServiceInstall();
 var
   Parameters: String;
@@ -78,9 +107,7 @@ begin
     QuoteArgument(ExpandConstant('{app}\Installer\Install-QuietShieldProductionService.ps1')) +
     ' -ApprovedInstallerServiceRegistration -Version ' + QuoteArgument('{#AppVersion}') +
     ' -ProductRoot ' + QuoteArgument(ExpandConstant('{app}')) +
-    ' -StateRoot ' + QuoteArgument(ExpandConstant('{commonappdata}\QuietShield\Service')) +
-    ' -AuthorizedUserSid ' + QuoteArgument(ExpandConstant('{userinfosid}')) +
-    ' -AuthorizedUserProgramsRoot ' + QuoteArgument(ExpandConstant('{localappdata}\Programs'));
+    ' -StateRoot ' + QuoteArgument(ExpandConstant('{commonappdata}\QuietShield\Service'));
   if not Exec(InstallerPowerShellPath(), Parameters, '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) then
     RaiseException('The exact QuietShield production service registration could not be started.');
   if ResultCode <> 0 then

@@ -45,47 +45,36 @@ public sealed class Phase11IntegrationSafetyTests
     [TestMethod]
     public void Phase11DGuiExposesCustomerWorkflowButNoDeveloperLifecycleOrRawEnforcementAction()
     {
-        var dashboard = File.ReadAllText(Path.Combine(
-            RepositoryRoot,
-            "src",
-            "QuietShield.App",
-            "Pages",
-            "DashboardPage.xaml"));
+        var appRoot = Path.Combine(RepositoryRoot, "src", "QuietShield.App");
+        var dashboard = File.ReadAllText(Path.Combine(appRoot, "Pages", "DashboardPage.xaml"));
+        var programLock = File.ReadAllText(Path.Combine(appRoot, "Pages", "ProgramConnectionLockPage.xaml"));
 
-        var programLock = File.ReadAllText(Path.Combine(
-            RepositoryRoot,
-            "src",
-            "QuietShield.App",
-            "Pages",
-            "ProgramConnectionLockPage.xaml"));
+        foreach (var required in new[]
+                 {
+                     "MASTER CONTROL", "ProtectionToggleCommand",
+                     "RefreshConsumerProtectionCommand", "OpenProgramLockPageCommand"
+                 })
+            StringAssert.Contains(dashboard, required);
 
-        var validator = File.ReadAllText(Path.Combine(
-            RepositoryRoot,
-            "src",
-            "QuietShield.App",
-            "Phase11GuiValidator.cs"));
-
-        StringAssert.Contains(dashboard, "Refresh Service Status");
-        StringAssert.Contains(dashboard, "Phase 10B validated");
-        StringAssert.Contains(programLock, "Persistent customer workflow");
-        StringAssert.Contains(programLock, "Save protection policy");
-        StringAssert.Contains(programLock, "Retry service connection");
-        StringAssert.Contains(validator, "CustomerEnforcementControlsAbsent");
-        StringAssert.Contains(validator, "CustomerWorkflowVisible");
+        foreach (var required in new[]
+                 {
+                     "ApplyAppRuleButton_Click", "RetryPersistentServiceConnectionCommand",
+                     "PreviewEnforcementPlanCommand", "ExportEnforcementPlanCommand",
+                     "PersistentWorkflowMessage"
+                 })
+            StringAssert.Contains(programLock, required);
 
         foreach (var prohibited in new[]
                  {
-                     "Content=\"Install Service\"",
-                     "Content=\"Start Service\"",
-                     "Content=\"Apply\"",
-                     "Content=\"Enforce\"",
-                     "Content=\"Block Now\""
+                     "Content=\"Install Service\"", "Content=\"Start Service\"",
+                     "Content=\"Run Rehearsal\"", "Content=\"Administrator\"",
+                     "Content=\"Block Now\"", "-Verb RunAs"
                  })
         {
             Assert.IsFalse(
                 dashboard.Contains(prohibited, StringComparison.OrdinalIgnoreCase) ||
                 programLock.Contains(prohibited, StringComparison.OrdinalIgnoreCase),
-                $"Phase 11A exposed a customer enforcement action: {prohibited}");
+                $"The customer GUI exposes a developer lifecycle or raw privileged action: {prohibited}.");
         }
     }
 

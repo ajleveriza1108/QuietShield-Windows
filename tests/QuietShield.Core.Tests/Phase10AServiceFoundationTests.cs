@@ -13,7 +13,7 @@ public sealed class Phase10AServiceFoundationTests
     private static readonly string[] RequiredMessageNames =
     [
         "GetServiceStatus", "GetActiveProfile", "PreviewPolicyPlan", "RequestProfileActivation",
-        "RequestProgramRuleChange", "RequestTemporaryAllowance", "GetTransactionStatus", "RequestRollback", "GetHealth", "Ping"
+        "RequestProgramRuleChange", "RequestTemporaryAllowance", "GetTransactionStatus", "RequestRollback", "GetHealth", "GetBackendStatus", "GetProtectionStatistics", "RunBackendSelfTest", "RequestDnsShieldActivation", "RequestOperatingModeEnforcement", "ReportPrivateBrowserBlockEvent", "RequestFileSafetyScan", "Ping"
     ];
 
     [TestMethod]

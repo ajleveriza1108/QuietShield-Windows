@@ -4,8 +4,8 @@ param(
     [Parameter(Mandatory = $true)][string]$Version,
     [Parameter(Mandatory = $true)][string]$ProductRoot,
     [Parameter(Mandatory = $true)][string]$StateRoot,
-    [Parameter(Mandatory = $true)][string]$AuthorizedUserSid,
-    [Parameter(Mandatory = $true)][string]$AuthorizedUserProgramsRoot
+    [string]$AuthorizedUserSid = '',
+    [string]$AuthorizedUserProgramsRoot = ''
 )
 
 Set-StrictMode -Version 2.0
@@ -16,6 +16,33 @@ if (-not (Test-Path -LiteralPath (Join-Path $sharedRoot 'QuietShield.Script.Comm
 . (Join-Path $sharedRoot 'ServiceActivation.Script.Common.ps1')
 . (Join-Path $PSScriptRoot 'QuietShield.Installer.Common.ps1')
 Assert-QuietShieldPowerShell51
+
+# R4.2.20 interactive installer identity
+# Administrative Setup may run under credentials different from the logged-in desktop user.
+# Resolve the interactive account explicitly and fail closed if it cannot be mapped to one profile.
+function Resolve-QuietShieldInteractiveInstallIdentity {
+    $computer = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
+    $accountName = [string]$computer.UserName
+    if ([string]::IsNullOrWhiteSpace($accountName)) { throw 'No interactive Windows user is available for QuietShield authorization.' }
+    try {
+        $account = New-Object Security.Principal.NTAccount($accountName)
+        $sid = [string]$account.Translate([Security.Principal.SecurityIdentifier]).Value
+    }
+    catch { throw ('The interactive Windows account could not be translated to a SID: ' + $accountName) }
+    if ($sid -notmatch '\AS-1-') { throw 'The interactive Windows SID is invalid.' }
+    $profileKey = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + $sid
+    $profile = Get-ItemProperty -LiteralPath $profileKey -Name ProfileImagePath -ErrorAction Stop
+    $profilePath = [Environment]::ExpandEnvironmentVariables([string]$profile.ProfileImagePath).TrimEnd('\')
+    if ([string]::IsNullOrWhiteSpace($profilePath) -or -not [IO.Path]::IsPathRooted($profilePath)) { throw 'The interactive Windows profile path is invalid.' }
+    [pscustomobject]@{ Sid = $sid; ProgramsRoot = (Join-Path $profilePath 'AppData\Local\Programs') }
+}
+if ([string]::IsNullOrWhiteSpace($AuthorizedUserSid) -or [string]::IsNullOrWhiteSpace($AuthorizedUserProgramsRoot)) {
+    $interactiveIdentity = Resolve-QuietShieldInteractiveInstallIdentity
+    if (-not [string]::IsNullOrWhiteSpace($AuthorizedUserSid) -and -not $AuthorizedUserSid.Equals([string]$interactiveIdentity.Sid, [StringComparison]::OrdinalIgnoreCase)) { throw 'Provided authorized SID does not match the interactive Windows user.' }
+    if (-not [string]::IsNullOrWhiteSpace($AuthorizedUserProgramsRoot) -and -not ([IO.Path]::GetFullPath($AuthorizedUserProgramsRoot).TrimEnd('\')).Equals([IO.Path]::GetFullPath([string]$interactiveIdentity.ProgramsRoot).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)) { throw 'Provided authorized Programs root does not match the interactive Windows user.' }
+    $AuthorizedUserSid = [string]$interactiveIdentity.Sid
+    $AuthorizedUserProgramsRoot = [string]$interactiveIdentity.ProgramsRoot
+}
 
 $layout = Get-QuietShieldProductionLayout -Version $Version
 if (-not ([IO.Path]::GetFullPath($ProductRoot).TrimEnd('\')).Equals([string]$layout.ProductRoot, [StringComparison]::OrdinalIgnoreCase) -or
@@ -132,8 +159,30 @@ try {
     $ownership.payloadSha256 = Get-QuietShieldProductionOwnershipPayloadHash -Manifest $ownership
     $ownership | ConvertTo-Json -Depth 7 | Set-Content -LiteralPath $layout.ServiceOwnershipPath -Encoding UTF8
     [void](Test-QuietShieldProductionOwnership -OwnershipPath $layout.ServiceOwnershipPath)
-    Start-Service -Name 'QuietShieldService'
-    (Get-Service -Name 'QuietShieldService').WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(30))
+    # R4.2.26 installer stable service start
+    # Reaching RUNNING once is not sufficient. Require a bounded stability window.
+    # Exactly one retry is permitted; a second drop fails installation.
+    $serviceStable = $false
+    $serviceStartAttempt = 0
+    for ($attempt = 1; $attempt -le 2; $attempt++) {
+        $serviceStartAttempt = $attempt
+        if ($attempt -gt 1) { Start-Sleep -Seconds 2 }
+        $serviceController = Get-Service -Name 'QuietShieldService' -ErrorAction Stop
+        if ($serviceController.Status -ne [ServiceProcess.ServiceControllerStatus]::Running) {
+            Start-Service -Name 'QuietShieldService'
+        }
+        $serviceController = Get-Service -Name 'QuietShieldService' -ErrorAction Stop
+        $serviceController.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(30))
+        Start-Sleep -Seconds 10
+        $serviceController.Refresh()
+        if ($serviceController.Status -eq [ServiceProcess.ServiceControllerStatus]::Running) {
+            $serviceStable = $true
+            break
+        }
+    }
+    if (-not $serviceStable) {
+        throw ('QuietShieldService did not remain RUNNING after installer registration; bounded start attempts=' + $serviceStartAttempt)
+    }
     [pscustomobject]@{ status = 'Installed'; serviceName = 'QuietShieldService'; version = $Version; installationId = $installationId.ToString('D'); serviceRunning = $true; firewallRulesCreated = 0; dnsChanged = $false; restartRequired = $false } | ConvertTo-Json -Compress
 }
 catch {

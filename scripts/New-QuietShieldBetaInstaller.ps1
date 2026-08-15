@@ -36,7 +36,7 @@ New-Item -ItemType Directory -Path $serviceScriptsRoot -Force | Out-Null
 foreach ($name in @('QuietShield.Script.Common.ps1','ServiceActivation.Script.Common.ps1','Invoke-ServiceFirewallPolicy.ps1')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $serviceScriptsRoot $name)
 }
-foreach ($name in @('QuietShield.Installer.Common.ps1','Install-QuietShieldProductionService.ps1','Uninstall-QuietShieldProductionService.ps1')) {
+foreach ($name in @('QuietShield.Installer.Common.ps1','Install-QuietShieldProductionService.ps1','Uninstall-QuietShieldProductionService.ps1','Prepare-QuietShieldProductionUpgrade.ps1')) {
     Copy-Item -LiteralPath (Join-Path $installerRoot $name) -Destination (Join-Path $installerPayloadRoot $name)
 }
 Copy-Item -LiteralPath (Join-Path $installerRoot 'phase12-security-policy.json') -Destination (Join-Path $installerPayloadRoot 'phase12-security-policy.json')

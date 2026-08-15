@@ -16,6 +16,7 @@ if ($version -notmatch '\A\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\z') { throw 'The aut
 $scriptsToParse = @(
     (Join-Path $installerSourceRoot 'QuietShield.Installer.Common.ps1'),
     (Join-Path $installerSourceRoot 'Install-QuietShieldProductionService.ps1'),
+    (Join-Path $installerSourceRoot 'Prepare-QuietShieldProductionUpgrade.ps1'),
     (Join-Path $installerSourceRoot 'Uninstall-QuietShieldProductionService.ps1'),
     (Join-Path $PSScriptRoot 'New-QuietShieldBetaInstaller.ps1'),
     (Join-Path $PSScriptRoot 'Test-QuietShieldBetaInstaller.ps1'),
